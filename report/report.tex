@@ -24,10 +24,10 @@
 % Abstract
 
 \begin{abstract}%
-Ray Tracing is next to rasterization the most widely used technique to generate discrete 2D images from continuous 3D scenes. Until recently ray tracing was too resource intensive to produce images in realtime, but advances in hardware capabilities, most notably the introduction of GPGPU (General Purpose Graphics Processing Units), and algorithms made near-realtime ray tracing feasible. In this paper we will present some of the techniques which are used to achieve this.
+Ray Tracing is next to rasterization the most widely used technique to generate discrete 2D images from continuous 3D scenes. Until recently ray tracing was too resource intensive to produce images in realtime, but advances in hardware capabilities, most notably the introduction of GPGPU (General Purpose Graphics Processing Units), and algorithms made near-realtime ray tracing feasible. In this report we will present some of the techniques which are used to achieve this.
 \end{abstract}
 
-\keywords{Ray Tracing, Path Tracing, Acceleration Structures, Realtime Rendering}
+\keywords{Ray Tracing, Acceleration Structures, Realtime Rendering, GPGPU}
 \tableofcontents
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -47,19 +47,26 @@ the latex source folder.
 Talk about ray tracing from Whitted to Hyperion.
 
 \section{Overview over the path tracing algorithm}
-A short overview of the base algorithm we are going to use for the rest of the paper.
+A short overview of the base algorithm we are going to use for the rest of the paper. Cite \cite{veach1997robust} all the way.
 
-\section{Spacial Partitioning and Acceleration Structures}
+\section{Spacial partitioning and acceleration structures}
 Going logarithmic baby!
 \subsection{BSP and KD-Trees}
 \subsection{Volume Hierachies}
 
+\section{Accelerating the convergence of path tracing}
+Here's where \cite{Pharr:2010:PBR:1854996} comes in.
+\subsection{Bidirectional Path Tracing}
+\subsection{Gradient-Domain Path Tracing}
+Do I really wanna go here? \cite{Kettunen2015sg}
+
 \section{Adapting the described algorithms to the GPU}
 \subsection{Accessing the GPU outside of the rasterization pipeline}
-\subsection{Sparse datastructures}
+\subsection{Hierarchical data structures on the GPU}
 
 \section{Results}
-\section{Timings}
+\subsection{Images}
+\subsection{Timings}
 
 \begin{figure}[htb!]
   \begin{centering}
