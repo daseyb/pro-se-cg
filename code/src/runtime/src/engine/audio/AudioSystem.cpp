@@ -42,6 +42,7 @@ bool AudioSystem::startup() {
   result = masterChannelGroup->addDSP(0, m_lowPassDsp);
   CHECK_RESULT(result, "Could not add Low Pass to master channel group.");
 
+
   setLowPassCutoff(800);
 
   m_isActive = true;

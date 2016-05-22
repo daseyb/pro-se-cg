@@ -51,7 +51,12 @@ MESSAGE(${FMOD_LIBRARIES})
 
 set(DLLS ${FMOD_DLLS})
 
-set(LIBRARIES ACGL${COMPILE_POSTFIX} SDL2-static SDL2main ${OPENGL_LIBRARIES} ${FMOD_LIBRARIES})
+add_subdirectory(extern/portmidi)
+include_directories(extern/portmidi/pm_common)
+
+set(LIBRARIES ACGL${COMPILE_POSTFIX} SDL2-static SDL2main portmidi-static ${OPENGL_LIBRARIES} ${FMOD_LIBRARIES})
+
+
 
 #
 # MacOS X:

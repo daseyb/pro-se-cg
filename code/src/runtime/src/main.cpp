@@ -9,7 +9,7 @@
 #include <engine/core/GameLoopSystem.hpp>
 #include <engine/ui/UISystem.hpp>
 #include <engine/scene/SceneGraphSystem.hpp>
-
+#include <engine/audio/MidiSystem.hpp>
 
 int main(int argc, char *argv[]) {
   std::string configFile = argv[1];
@@ -31,6 +31,7 @@ int main(int argc, char *argv[]) {
   RendererSystem renderer(&context);
   SceneGraphSystem sceneGraph(&context);
   AudioSystem audio(&context);
+  MidiSystem midi(&context);
   UISystem ui(&context);
   GameLoopSystem gameLoop(&context, 60, 100);
 
@@ -43,11 +44,14 @@ int main(int argc, char *argv[]) {
       << std::endl;
     return -1;
   }
-    
+
+  
+
   window.setWindowTitle("Orion");
   // Kickoff the gameloop
   // This is what actually runs the game
   gameLoop.run();
+
 
   // Shutdown the registered systems in reverse order
   context.shutdown();
