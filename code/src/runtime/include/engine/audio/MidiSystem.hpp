@@ -1,3 +1,5 @@
+#pragma once
+
 #include <engine/core/Context.hpp>
 #include <engine/core/System.hpp>
 #include <engine/events/EventSystem.hpp>
