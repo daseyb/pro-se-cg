@@ -1,0 +1,9 @@
+{
+  "resolution": [1280, 720],
+  "target_fps": 60,
+  "vsync": true,
+  "fullscreen": false,
+  "quality": "high",
+  "ssao": false,
+  "scene": "AtmosphereTest",
+}

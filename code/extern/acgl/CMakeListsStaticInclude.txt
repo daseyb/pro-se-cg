@@ -1,0 +1,58 @@
+#
+# To build ACGL as a library, use the CMakeLists.txt
+# To build it statically into a project just include this file,
+# e.g.: INCLUDE(${CMAKE_SOURCE_DIR}/extern/acgl/CMakeListsStaticInclude.txt)
+#
+
+################################################################################
+# Macro to sort acgl into directories
+################################################################################
+
+MACRO (RECURSE_GROUPS dirname)
+    FILE(GLOB_RECURSE allfiles "${dirname}/*.*")
+    SET(ALL_FILES ${ALL_FILES} ${allfiles})
+    STRING(REGEX REPLACE ".*/([^/]*)" "\\1" maindir "${dirname}")
+
+    FOREACH(file ${allfiles})
+        STRING(REGEX REPLACE "${dirname}/(.*)/[^/]*" "\\1" loopdirname "${file}")
+        STRING(REGEX REPLACE "/" "\\\\" loopdirname "${loopdirname}")
+
+        IF(NOT "${file}" MATCHES "${dirname}/(.*)/[^/]*")
+            source_group("${maindir}" FILES  ${file})
+        ELSE()
+            source_group("${maindir}\\${loopdirname}" FILES  ${file})
+        ENDIF()
+    ENDFOREACH()
+ENDMACRO (RECURSE_GROUPS)
+
+SET(ACGL_BASE_DIR "${CMAKE_CURRENT_LIST_DIR}")
+# Find all used files of certain file-types
+FILE(GLOB_RECURSE SOURCE_FILES_C   "${ACGL_BASE_DIR}/src/*.c")
+FILE(GLOB_RECURSE SOURCE_FILES_CC  "${ACGL_BASE_DIR}/src/*.cc")
+FILE(GLOB_RECURSE SOURCE_FILES_CPP "${ACGL_BASE_DIR}/src/*.cpp")
+FILE(GLOB_RECURSE HEADER_FILES_H   "${ACGL_BASE_DIR}/include/*.h")
+FILE(GLOB_RECURSE HEADER_FILES_HH  "${ACGL_BASE_DIR}/include/*.hh")
+FILE(GLOB_RECURSE HEADER_FILES_HPP "${ACGL_BASE_DIR}/include/*.hpp")
+#group files in msvc
+RECURSE_GROUPS ("${ACGL_BASE_DIR}/include")
+RECURSE_GROUPS ("${ACGL_BASE_DIR}/src")
+
+SET(HEADER_FILES ${HEADER_FILES} ${HEADER_FILES_H} ${HEADER_FILES_HH} ${HEADER_FILES_HPP})
+SET(SOURCE_FILES ${SOURCE_FILES} ${SOURCE_FILES_C} ${SOURCE_FILES_CC} ${SOURCE_FILES_CPP})
+
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/include)
+
+# set debug build with: cmake -DCMAKE_BUILD_TYPE=Debug ...
+IF(CMAKE_BUILD_TYPE MATCHES Debug)
+    ADD_DEFINITIONS(-DDEBUG)
+ENDIF(CMAKE_BUILD_TYPE MATCHES Debug)
+IF(CMAKE_BUILD_TYPE MATCHES debug)
+    ADD_DEFINITIONS(-DDEBUG)
+ENDIF(CMAKE_BUILD_TYPE MATCHES debug)
+IF(CMAKE_BUILD_TYPE MATCHES DEBUG)
+    ADD_DEFINITIONS(-DDEBUG)
+ENDIF(CMAKE_BUILD_TYPE MATCHES DEBUG)
+
+IF(WIN32)
+    ADD_DEFINITIONS(-DWIN32)
+ENDIF(WIN32)

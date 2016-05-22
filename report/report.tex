@@ -35,46 +35,45 @@ Ray Tracing is next to rasterization the most widely used technique to generate 
 
 \section{Introduction}
 
-Introduction to your exciting topic including
-some citation~\cite{Pharr:2010:PBR:1854996}. Define citations
-in \verb+references.bib+ that you find in
-the latex source folder.
+Talk about ray tracing from Whitted to Hyperion. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Second Section
-
-\section{A brief history of ray tracing}
-Talk about ray tracing from Whitted to Hyperion.
-
 \section{Overview over the path tracing algorithm}
 A short overview of the base algorithm we are going to use for the rest of the paper. Cite \cite{veach1997robust} all the way.
 
 \section{Spacial partitioning and acceleration structures}
-Going logarithmic baby!
+Going logarithmic!
 \subsection{BSP and KD-Trees}
-\subsection{Volume Hierachies}
+\subsection{Volume Hierarchies}
 
 \section{Accelerating the convergence of path tracing}
 Here's where \cite{Pharr:2010:PBR:1854996} comes in.
-\subsection{Bidirectional Path Tracing}
 \subsection{Gradient-Domain Path Tracing}
-Do I really wanna go here? \cite{Kettunen2015sg}
+Do I really want to go here? \cite{Kettunen2015sg} I'll implement everything else first and see if I have time left.
+\subsection{Temporal Supersampling}
+I need to find a real paper describing this, so far only GDC talks. I think this is going to make a huge difference in the quality I can achieve.
 
 \section{Adapting the described algorithms to the GPU}
 \subsection{Accessing the GPU outside of the rasterization pipeline}
+CUDA or compute shaders, still need to decide.
 \subsection{Hierarchical data structures on the GPU}
+Use this: \cite{Karras:2012:MPC:2383795.2383801}
 
 \section{Results}
+I plan to implement everything I describe since I strongly believe computer science papers should \textbf{always} come with code.
 \subsection{Images}
+Pretty images rendered in real time. Link to a video.
 \subsection{Timings}
+Timing comparisons between the different techniques.
+
 
 \begin{figure}[htb!]
   \begin{centering}
-    \includegraphics[width=4cm]{figures/dummy.jpg}\par
+    \includegraphics[width=10cm]{figures/Output_PT_10kSPP.png}\par
   \end{centering}
-  \caption{A simple dummy picture to demonstrate how
-           to include graphics into your report.}
-  \label{fig:dummy}
+  \caption{This is what my path tracer is rendering right now, but not in real time.}
+  \label{fig:pathtraced}
 \end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
