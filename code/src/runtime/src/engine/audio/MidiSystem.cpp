@@ -5,9 +5,19 @@
 #include <engine/audio/MidiNoteEvent.hpp>
 #include <engine/audio/MidiControlEvent.hpp>
 #include <engine/audio/MidiPitchBendEvent.hpp>
+#include <engine/ui/UISystem.hpp>
 
 bool MidiSystem::startup() {
   RESOLVE_DEPENDENCY(m_events);
+
+
+  for (int i = 0; i < CHANNEL_COUNT; i++) {
+      m_pitchBendValues[i] = 0;
+      for (int j = 0; j < VALUE_COUNT; j++) {
+          m_controlValues[i][j] = 0;
+          m_keyStates[i][j] = { false, 0 };
+      }
+  }
 
   PmError error = Pm_Initialize();
 
@@ -40,33 +50,56 @@ bool MidiSystem::startup() {
   }
 
   m_events->subscribe<SimulateEvent>([&](const SimulateEvent &e) { update(); });
-  m_events->subscribe<RawMidiEvent>([&](const RawMidiEvent &e) {
-    ACGL::Utils::debug() << "Recieved MIDI event..."
-                         << "|Timestamp:" << e.timestamp
-                         << "|Status:" << e.status << "|Data1:" << e.data1
-                         << "|Data2:" << e.data2 << std::endl;
-  });
+
 
   m_events->subscribe<MidiNoteEvent>([&](const MidiNoteEvent &e) {
-    ACGL::Utils::debug() << "Midi Note..."
-                         << "|Channel:" << e.channel
-                         << "|Action:" << (e.on ? "On" : "Off")
-                         << "|Note:" << e.noteIndex
-                         << "|Velocity:" << e.velocity << std::endl;
+      m_keyStates[e.channel][e.noteIndex].isDown = e.on;
+      m_keyStates[e.channel][e.noteIndex].velocity = e.velocity;
   });
 
   m_events->subscribe<MidiControlEvent>([&](const MidiControlEvent &e) {
-      ACGL::Utils::debug() << "Midi Control Value..."
-          << "|Channel:" << e.channel
-          << "|Control:" << e.controlIndex
-          << "|Value:" << e.value << std::endl;
+      m_controlValues[e.channel][e.controlIndex] = e.value;
   });
 
   m_events->subscribe<MidiPitchBendEvent>([&](const MidiPitchBendEvent &e) {
-      ACGL::Utils::debug() << "Midi Pitch Bend..."
-          << "|Channel:" << e.channel
-          << "|Value:" << e.value << std::endl;
+      m_pitchBendValues[e.channel] = e.value;
   });
+
+
+  m_events->subscribe<"DrawUI"_sh>([this] {
+      static bool valuesOpened = true;
+      if (!ImGui::Begin("Midi Controls", &valuesOpened, ImVec2(275, 0), 0.3f)) {
+          ImGui::End();
+          return;
+      }
+
+      static int currentChannel = 0;
+
+      ImGui::DragInt("Channel", &currentChannel, 1.0f, 0, CHANNEL_COUNT - 1);
+      float controlValues[VALUE_COUNT];
+
+      for (int i = 0; i < VALUE_COUNT; i++) {
+          controlValues[i] = controlValue(i, currentChannel);
+      }
+
+      ImGui::PlotHistogram("Values", controlValues, VALUE_COUNT, 0, NULL, 0, 1.0f, glm::vec2(450, 100));
+
+      ImGui::Separator();
+
+      float keyValues[VALUE_COUNT];
+      for (int i = 0; i < VALUE_COUNT; i++) {
+          keyValues[i] = keyState(i, currentChannel);
+      }
+
+      ImGui::PlotHistogram("Keys", keyValues, VALUE_COUNT, 0, NULL, 0, 1.0f, glm::vec2(450, 100));
+      ImGui::Separator();
+
+      float val = pitchBend(currentChannel);
+      ImGui::DragFloat("Pitch Bend", &val, 1.0f, -1.0f, 1.0f);
+
+      ImGui::End();
+  }, 1);
+
 
 
   return true;
