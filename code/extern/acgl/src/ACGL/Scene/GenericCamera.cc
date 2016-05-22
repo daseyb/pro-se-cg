@@ -24,11 +24,11 @@ GenericCamera::GenericCamera() :
     mProjectionMode(PERSPECTIVE_PROJECTION),
     mStereoMode(MONO),
     mCurrentEye(EYE_LEFT),
-    mHorizontalFieldOfView(75.0),
-    mAspectRatio( 4.0/3.0 ),
-    mInterpupillaryDistance( 0.064 ), // 0.064 m = 6.4 cm - mean human eye distance: 6.47cm (male), 6.23cm (female)
-    mNearClippingPlane(0.1),     // 10 cm
-    mFarClippingPlane(5000.0)   // 5000 meter
+    mHorizontalFieldOfView(75.0f),
+    mAspectRatio( 4.0f/3.0f ),
+    mInterpupillaryDistance( 0.064f ), // 0.064 m = 6.4 cm - mean human eye distance: 6.47cm (male), 6.23cm (female)
+    mNearClippingPlane(0.1f),     // 10 cm
+    mFarClippingPlane(5000.0f)   // 5000 meter
 {
     setRotationMatrix( glm::mat3(1.0f) );
 }
@@ -46,7 +46,7 @@ void GenericCamera::FPSstyleLookAround( float _deltaX, float _deltaY )
 
     // get roll / pitch / yaw from the current rotation matrix:
     float yaw1 = asin(-R[2][0]);
-    float yaw2 = M_PI - asin(-R[2][0]);
+    float yaw2 = (float)M_PI - asin(-R[2][0]);
 
     float pitch1  = (cos(yaw1) > 0)? atan2(R[2][1], R[2][2]): atan2(-R[2][1], -R[2][2]);
     float pitch2  = (cos(yaw2) > 0)? atan2(R[2][1], R[2][2]): atan2(-R[2][1], -R[2][2]);

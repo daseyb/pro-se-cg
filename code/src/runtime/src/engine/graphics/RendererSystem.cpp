@@ -19,7 +19,6 @@ using namespace ACGL::OpenGL;
 using namespace ACGL::Base;
 using namespace ACGL::Utils;
 
-const glm::vec2 SHADOW_MAP_RESOLUTION = { 2048, 2048 };
 
 glm::mat4 interpolate(TransformData a, TransformData b, double t, glm::dvec3 camPos) {
     a.pos = a.pos - camPos;
@@ -100,7 +99,7 @@ bool RendererSystem::startup() {
 
 
   m_events->subscribe<ResizeWindowEvent>([this](const ResizeWindowEvent &e) {
-    glViewport(0, 0, e.newSize.x, e.newSize.y);
+    glViewport(0, 0, (int)e.newSize.x, (int)e.newSize.y);
     for (auto tex : m_screenSpaceTextures) {
       tex.texture->resize(e.newSize * 1.0f/(1 >> (int)tex.size));
     }
@@ -211,7 +210,7 @@ bool RendererSystem::startup() {
     ImGui::End();
     
     ImGui::Begin("Render Passes", 0, ImGuiWindowFlags_AlwaysAutoResize);
-    for (int i = 0; i < m_passes.size(); i++) {
+    for (size_t i = 0; i < m_passes.size(); i++) {
       auto& pass = m_passes[i];
       if (ImGui::Button(("Pass_" + std::to_string(i)).c_str())) {
         pass.active = !pass.active;
@@ -279,7 +278,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   currentOffset.y /= gBufferRes.y;
   currentOffset.z = 0;
 
-  aaProj = glm::perspectiveFov<float>(glm::radians(cam->fov), windowSize.x, windowSize.y, cam->near, cam->far);
+  auto aaProj = glm::perspectiveFov<float>(glm::radians(cam->fov), (float)windowSize.x, (float)windowSize.y, cam->near, cam->far);
   glm::mat4 viewMatrix = glm::inverse(camTransform);
   glm::mat4 viewMatrixInverse = camTransform;
 
@@ -388,8 +387,8 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
     m_shadowMapProg->setUniform("uViewProjectionMatrix", light.projMatrix);
 
-    for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
-      auto drawCall = pass.submittedDrawCallsOpaque[i];
+    for (size_t j = 0; j < pass.submittedDrawCallsOpaque.size(); j++) {
+      auto drawCall = pass.submittedDrawCallsOpaque[j];
 
       if (drawCall.material.castShadow) {
         if (drawCall.material.cullSide == GL_NONE) {
@@ -415,7 +414,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
   if (pass.hasSSAO) {
     auto ssaoRes = glm::vec2(m_ssaoTarget->getSize());
-    glViewport(0, 0, ssaoRes.x, ssaoRes.y);
+    glViewport(0, 0, (int)ssaoRes.x, (int)ssaoRes.y);
 
     m_ssaoTarget->bind();
     m_ssaoTarget->setClearColor(glm::vec4{ 0, 0, 0, 0 });
@@ -459,7 +458,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   glCullFace(GL_BACK);
 
   auto compositingRes = glm::vec2(m_secondaryCompositingBuffer->getSize());
-  glViewport(0, 0, compositingRes.x, compositingRes.y);
+  glViewport(0, 0, (int)compositingRes.x, (int)compositingRes.y);
 
   m_deferredCombineProgram->use();
   m_deferredCombineProgram->setTexture("uSamplerColor", m_colorBuffer, 0);
@@ -708,14 +707,3 @@ void RendererSystem::shutdown() {
   }
 }
 
-glm::mat4 RendererSystem::getProjectionMatrix() {
-    return aaProj;
-}
-
-GLfloat RendererSystem::getDepthAtPixel(int x, int y) {
-    m_gBufferObject->bind();
-    
-    GLfloat depth;
-    glReadPixels(x, y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
-    return depth;
-};

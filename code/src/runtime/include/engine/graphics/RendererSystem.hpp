@@ -43,6 +43,7 @@ struct RenderPass {
 
 class RendererSystem : public System {
 private:
+  const glm::vec2 SHADOW_MAP_RESOLUTION = {2048, 2048};
   const float SHADOW_MAP_SCALE_FACTOR[3] = {0.25f, 0.5f, 1.0f};
   const ScreenSpaceSize G_BUFFER_SIZE[3] = {
       ScreenSpaceSize::HALF, ScreenSpaceSize::FULL, ScreenSpaceSize::FULL};
@@ -84,7 +85,6 @@ private:
   ACGL::OpenGL::SharedFrameBufferObject m_secondaryCompositingBuffer;
   ACGL::OpenGL::SharedFrameBufferObject m_postfxTargetBuffer;
 
-
   SharedShaderProgram m_deferredCombineProgram;
   SharedShaderProgram m_blitProgram;
   SharedShaderProgram m_passBlitProgram;
@@ -94,8 +94,6 @@ private:
   SharedShaderProgram m_ssaoBlurProg;
 
   SharedShaderProgram m_txaaProg;
-
-  glm::mat4 aaProj;
 
   uint64_t m_frameIndex = 0;
 
@@ -179,7 +177,7 @@ public:
     if (m_passIds.find(sh) != m_passIds.end()) {
       return m_passIds[sh];
     }
-    return -1;
+    return (uint32_t)-1;
   }
 
   inline size_t getNumPasses() { return m_passes.size(); }
@@ -242,10 +240,6 @@ public:
     m_screenSpaceTextures.push_back({size, tex}); // RGBA per default
     return tex;
   }
-
-  glm::mat4 getProjectionMatrix();
-
-  GLfloat getDepthAtPixel(int x, int y);
 
   void frame(double interp, double totalTime);
 };

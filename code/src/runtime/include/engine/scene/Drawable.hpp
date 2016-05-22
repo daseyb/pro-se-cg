@@ -5,11 +5,10 @@
 #include <engine/graphics/Material.hpp>
 
 struct Drawable : Component<Drawable> {
-  explicit Drawable(Geometry geom, Material mat, int tf = 0, uint32_t renderPassIndex = 0) : geometry(geom), material(mat), recursionDepth(tf), renderPassIndex(renderPassIndex){}
+  explicit Drawable(Geometry geom, Material mat, uint32_t renderPassIndex = 0) : geometry(geom), material(mat), renderPassIndex(renderPassIndex){}
   Geometry geometry;
   Material material;
   bool visible = true;
-	int recursionDepth = false;
   uint32_t renderPassIndex;
 };
 

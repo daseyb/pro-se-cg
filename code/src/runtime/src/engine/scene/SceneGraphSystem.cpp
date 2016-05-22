@@ -90,7 +90,7 @@ void SceneGraphSystem::prepareDraw(double interp) {
 
     auto thisRenderTransform = interpolate(transform->lastGlobalTransform, transform->thisGlobalTransform, interp, cams[drawable->renderPassIndex]);
     if (drawable->visible) {
-	    m_renderer->submit({ drawable->material, drawable->geometry, transform->lastRenderTransform, thisRenderTransform, drawable->recursionDepth }, drawable->material.queue, drawable->renderPassIndex);
+	    m_renderer->submit({ drawable->material, drawable->geometry, transform->lastRenderTransform, thisRenderTransform }, drawable->material.queue, drawable->renderPassIndex);
     }
     transform->lastRenderTransform = thisRenderTransform;
   }

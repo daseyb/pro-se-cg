@@ -14,5 +14,4 @@ struct DrawCall {
   Geometry geometry;
   glm::dmat4 lastRenderTransform;
   glm::dmat4 thisRenderTransform;
-	int recursionDepth;
 };

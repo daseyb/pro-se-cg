@@ -30,9 +30,9 @@ bool GameLoopSystem::startup() {
     }
 
     static int frameTimeIndex = 0;
-    float totalFrameTime = m_lastSimulateFrameTime + m_lastPerpareDrawTime + m_lastDrawTime + m_lastSwapTime;
+    double totalFrameTime = m_lastSimulateFrameTime + m_lastPerpareDrawTime + m_lastDrawTime + m_lastSwapTime;
 
-    m_frameTimeHistory[frameTimeIndex] = totalFrameTime;
+    m_frameTimeHistory[frameTimeIndex] = (float)totalFrameTime;
     frameTimeIndex = (frameTimeIndex + 1) % m_frameTimeHistory.size();
     
     ImGui::Text("FPS:          %d", (int)(1000.0f/(totalFrameTime)));

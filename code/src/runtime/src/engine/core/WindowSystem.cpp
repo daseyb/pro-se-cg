@@ -36,6 +36,10 @@ void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id,
                             GLenum severity, GLsizei length,
                             const GLchar *message, void *userParam) {
 
+  _CRT_UNUSED(id);
+  _CRT_UNUSED(length);
+  _CRT_UNUSED(severity);
+  _CRT_UNUSED(userParam);
   if (type == GL_DEBUG_TYPE_OTHER) return;
 
   cout << "Note: ";

@@ -18,8 +18,8 @@ private:
   RendererSystem* m_renderer;
   AudioSystem* m_audio;
 
-  Uint32 m_targetFrameRate;
-  Uint32 m_maxFrameTime;
+  uint32_t m_targetFrameRate;
+  uint32_t m_maxFrameTime;
 
   double m_lastSimulateFrameTime;
   double m_lastPerpareDrawTime;

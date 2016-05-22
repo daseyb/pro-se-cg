@@ -22,6 +22,7 @@ namespace {
 
 GLenum getDDSInternalFormat(bool compressed, GLenum format, ColorSpace _colorSpace = ColorSpace::AUTO_DETECT)
 {
+    _CRT_UNUSED(compressed);
     GLenum internal_format = format;
 
     // Internal format for uncompressed color formats

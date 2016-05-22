@@ -35,7 +35,7 @@ private:
   bool m_fullscreen;
   bool m_ssaoEnabled;
   bool m_vsyncEnabled;
-  uint64_t m_targetFps;
+  uint32_t m_targetFps;
   std::string m_defaultScene;
   std::string m_defaultPlanetType;
 
@@ -59,7 +59,7 @@ public:
   inline bool getFullscreen() const { return m_fullscreen; }
   inline bool ssaoEnabled() const { return m_ssaoEnabled; }
   inline bool vsyncEnabled() const { return m_vsyncEnabled; }
-  inline uint64_t getTargetFps() const { return m_targetFps; }
+  inline uint32_t getTargetFps() const { return m_targetFps; }
   inline QualitySetting getQualitySetting() const { return m_qualitySetting; }
   inline std::string getDefaultScene() const { return m_defaultScene; }
   inline std::string getDefaultPlanetType() const { return m_defaultPlanetType; }

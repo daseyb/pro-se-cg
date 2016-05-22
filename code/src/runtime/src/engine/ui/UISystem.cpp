@@ -128,7 +128,7 @@ void UISystem::setupGLObjects(ImGuiIO& io) {
   m_fontTextureData = std::make_shared<TextureData>();
   // No need to delete pixels since ClearTexData below does that.
   // Just needed to upload it to a texture
-  m_fontTextureData->setData(pixels, [](GLubyte* data) {});
+  m_fontTextureData->setData(pixels, [](GLubyte* data) { _CRT_UNUSED(data); });
   m_fontTextureData->setFormat(GL_RGBA);
   m_fontTextureData->setType(GL_UNSIGNED_BYTE);
   m_fontTextureData->setWidth(width);
@@ -152,7 +152,7 @@ void UISystem::newFrame() {
 
   // Setup display size (every frame to accommodate for window resizing)
   auto windowSize = m_window->getSize();
-  io.DisplaySize = ImVec2(windowSize.x, windowSize.y);
+  io.DisplaySize = ImVec2((float)windowSize.x, (float)windowSize.y);
   io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
   // TODO: get actual delta time

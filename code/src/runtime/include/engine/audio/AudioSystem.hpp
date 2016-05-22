@@ -50,7 +50,7 @@ public:
   void getSpectrum(float** data, unsigned int* length) {
     
     FMOD_DSP_PARAMETER_FFT* dspData;
-    auto result = m_fftDsp->getParameterData(2, (void**)&dspData, length, 0, 0);
+    m_fftDsp->getParameterData(2, (void**)&dspData, length, 0, 0);
 
     *length = dspData->length;
     *data = dspData->spectrum[1];

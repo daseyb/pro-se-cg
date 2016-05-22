@@ -11,7 +11,7 @@ using namespace ACGL::Utils;
 
 float computeGaussian(float n) {
   float theta = 4;
-  float val = ((float)((1.0 / sqrtf(2 * M_PI * theta)) * exp(-(n * n) / (2 * theta * theta))) - 0.001f);
+  float val = ((float)((1.0f / sqrtf(2 * (float)M_PI * theta)) * exp(-(n * n) / (2.0f * theta * theta))) - 0.001f);
   if (val < 0) val = 0;
   return val;
 }
@@ -41,7 +41,7 @@ void BloomPostFX::startup() {
   m_extractProgram = ShaderProgramFileManager::the()->get(ShaderProgramCreator("Bloom/Extract"));
   m_blurProgram = ShaderProgramFileManager::the()->get(ShaderProgramCreator("Bloom/Blur").fragmentDataLocations(m_blurBufferHorizontal->getAttachmentLocations()));
 
-  int sampleCount = m_gaussianWeights.size();
+  size_t sampleCount = m_gaussianWeights.size();
   // The first sample always has a zero offset.
   m_gaussianWeights[0] = computeGaussian(0);
   m_sampleOffsets[0] = 0;
@@ -49,9 +49,9 @@ void BloomPostFX::startup() {
   float totalWeights = m_gaussianWeights[0];
   // Add pairs of additional sample taps, positioned
   // along a line in both directions from the center.
-  for (int i = 0; i < sampleCount / 2; i++) {
+  for (size_t i = 0; i < sampleCount / 2; i++) {
     // Store weights for the positive and negative taps.
-    float weight = computeGaussian(i + 1);
+    float weight = computeGaussian((float)i + 1);
     m_gaussianWeights[i * 2 + 1] = weight;
     m_gaussianWeights[i * 2 + 2] = weight;
     totalWeights += weight * 2;
@@ -62,7 +62,7 @@ void BloomPostFX::startup() {
   }
 
   // Normalize the list of sample weightings, so they will always sum to one.
-  for (int i = 0; i < m_gaussianWeights.size(); i++) {
+  for (size_t i = 0; i < m_gaussianWeights.size(); i++) {
     m_gaussianWeights[i] /= totalWeights;
   }
 
@@ -83,7 +83,7 @@ void BloomPostFX::apply(ACGL::OpenGL::ConstSharedTextureBase inputBuffer, ACGL::
   // Extract bright pixels
   m_extractBuffer->bind();
   m_extractBuffer->clearBuffers();
-  glViewport(0, 0, bloomSize.x, bloomSize.y);
+  glViewport(0, 0, (int)bloomSize.x, (int)bloomSize.y);
 
   m_extractProgram->use();
   m_extractProgram->setTexture("uSamplerColor", inputBuffer, 0);
@@ -106,7 +106,7 @@ void BloomPostFX::apply(ACGL::OpenGL::ConstSharedTextureBase inputBuffer, ACGL::
   auto blurSrc = m_extractTexture;
 
   for (int pass = 0; pass < (int)m_quality + 1; pass++) {
-    glViewport(0, 0, bloomSize.x, bloomSize.y);
+    glViewport(0, 0, (int)bloomSize.x, (int)bloomSize.y);
     // Blur horizontally
     m_blurBufferHorizontal->bind();
     m_blurBufferHorizontal->clearBuffers();
@@ -114,7 +114,7 @@ void BloomPostFX::apply(ACGL::OpenGL::ConstSharedTextureBase inputBuffer, ACGL::
     m_blurProgram->setUniform("uSampleWeights", m_gaussianWeights.size(), m_gaussianWeights.data());
 
     m_blurProgram->setTexture("uSamplerColor", blurSrc, 0);
-    for (int i = 0; i < offsets.size(); i++) {
+    for (size_t i = 0; i < offsets.size(); i++) {
       offsets[i] = glm::vec2(m_sampleOffsets[i] * scales[pass] / blurSrc->getWidth(), 0);
     }
     m_blurProgram->setUniform("uSampleOffsets", offsets.size(), offsets.data());
@@ -125,7 +125,7 @@ void BloomPostFX::apply(ACGL::OpenGL::ConstSharedTextureBase inputBuffer, ACGL::
     m_blurBufferVertical->clearBuffers();
     m_blurProgram->setTexture("uSamplerColor", m_blurTextureHorizontal, 0);
 
-    for (int i = 0; i < offsets.size(); i++) {
+    for (size_t i = 0; i < offsets.size(); i++) {
       offsets[i] = glm::vec2(0, m_sampleOffsets[i] * scales[pass] / m_blurTextureHorizontal->getHeight());
     }
     m_blurProgram->setUniform("uSampleOffsets", offsets.size(), offsets.data());

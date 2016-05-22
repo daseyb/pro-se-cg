@@ -6,19 +6,19 @@
 struct Transform : Component<Transform> {
   Transform::Handle parent;
   
-  glm::dvec3 lastPosition;
-  glm::dmat4 lastRotation;
-  glm::dvec3 lastScale;
+  glm::vec3 lastPosition;
+  glm::mat4 lastRotation;
+  glm::vec3 lastScale;
 
-  glm::dvec3 position;
-  glm::dmat4 rotation;
-  glm::dvec3 scale;
+  glm::vec3 position;
+  glm::mat4 rotation;
+  glm::vec3 scale;
 
 
-  glm::dmat4 lastRenderTransform;
+  glm::mat4 lastRenderTransform;
   TransformData lastGlobalTransform;
   TransformData thisGlobalTransform;
 
-  Transform() : position(glm::dvec3(0, 0, 0)), lastPosition(glm::dvec3(0, 0, 0)), lastScale(glm::dvec3(1.0, 1.0, 1.0)), scale(glm::dvec3(1.0, 1.0, 1.0)) {};
+  Transform() : position(glm::vec3(0, 0, 0)), lastPosition(glm::vec3(0, 0, 0)), lastScale(glm::vec3(1.0, 1.0, 1.0)), scale(glm::vec3(1.0, 1.0, 1.0)) {};
 };
 

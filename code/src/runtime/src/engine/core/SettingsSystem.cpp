@@ -46,63 +46,16 @@ bool SettingsSystem::startup() {
   m_fullscreen = false;
   m_vsyncEnabled = true;
   m_targetFps = 60;
-  m_defaultScene = "AtmosphereTest";
-  m_defaultPlanetType = "earth";
+  m_defaultScene = "Default";
 
 #define VALIDATE_TYPE(p, type) if(!p.second.is<type>()) { std::cout << "Warning: Setting \"" << i.first << "\": " << i.second << " is not of expected type " #type "." << std::endl; continue; }
 
   for (auto& i : o) {
-    if (i.first == "available_planet_prefabs") {
-      VALIDATE_TYPE(i, picojson::array);
-      const picojson::array& planets = i.second.get<picojson::array>();
-      m_availablePlanets.clear();
-      for (auto& planet : planets) {
-
-        auto planetName = planet.get<std::string>();
-        std::string fullPath = m_resourcePath + getDirectory(m_configFilePath) + "/planets/" + planetName + ".json";
-        std::ifstream planetFile(fullPath);
-
-        if (!planetFile.is_open()) {
-          std::cerr << "Could not open planet file " << fullPath << "!" << std::endl;
-          continue;
-        }
-
-        picojson::value planetVal;
-        planetFile >> planetVal;
-
-        if (!planetVal.is<picojson::object>()) {
-          std::cerr << "Could not read planet file " << fullPath << "!" << std::endl;
-          return false;
-        }
-
-        const picojson::object& planetObj = planetVal.get<picojson::object>();
-
-
-        PlanetMetaData planetData;
-        planetData.name = planetName;
-        for (auto& prop : planetObj) {
-          if (prop.first == "shaders") {
-            VALIDATE_TYPE(prop, std::string);
-            planetData.shaders = prop.second.get<std::string>();
-          } else if (prop.first == "atmosphere") {
-            VALIDATE_TYPE(prop, bool);
-            planetData.hasAtmosphere = prop.second.get<bool>();
-          } else if (prop.first == "water") {
-            VALIDATE_TYPE(prop, bool);
-            planetData.hasWater = prop.second.get<bool>();
-          } else if (prop.first == "moons") {
-            VALIDATE_TYPE(prop, int64_t);
-            planetData.moonCount = prop.second.get<int64_t>();
-          }
-        }
-
-        m_availablePlanets.push_back(planetData);
-      }
-    } else if(i.first == "resolution") {
+    if(i.first == "resolution") {
       VALIDATE_TYPE(i, picojson::array);
       const picojson::array& res = i.second.get<picojson::array>();
-      m_resolution.x = res[0].get<int64_t>();
-      m_resolution.y = res[1].get<int64_t>();
+      m_resolution.x = (int)res[0].get<int64_t>();
+      m_resolution.y = (int)res[1].get<int64_t>();
     } else if (i.first == "fullscreen") {
       VALIDATE_TYPE(i, bool);
       m_fullscreen = i.second.get<bool>();
@@ -114,7 +67,7 @@ bool SettingsSystem::startup() {
       m_vsyncEnabled = i.second.get<bool>();
     } else if (i.first == "target_fps") {
       VALIDATE_TYPE(i, int64_t);
-      m_targetFps = i.second.get<int64_t>();
+      m_targetFps = (uint32_t)i.second.get<int64_t>();
     } else if (i.first == "quality") {
       VALIDATE_TYPE(i, std::string);
       auto setting = i.second.get<std::string>();
@@ -126,9 +79,6 @@ bool SettingsSystem::startup() {
     } else if (i.first == "scene") {
       VALIDATE_TYPE(i, std::string);
       m_defaultScene = i.second.get<std::string>();
-    } else if (i.first == "default_planet_type") {
-      VALIDATE_TYPE(i, std::string);
-      m_defaultPlanetType = i.second.get<std::string>();
     } else {
       std::cout << "Warning: Unknown setting \"" << i.first << "\"." << std::endl;
     }
