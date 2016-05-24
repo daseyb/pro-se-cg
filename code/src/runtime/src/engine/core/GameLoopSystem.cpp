@@ -2,6 +2,7 @@
 #include <engine/events/DrawEvent.hpp>
 #include <engine/events/PrepareDrawEvent.hpp>
 #include <ACGL/ACGL.hh>
+#include <engine/utils/Remotery.h>
 
 #include <engine/events/ControllerEvent.hpp>
 #include <engine/events/JoystickEvent.hpp>
@@ -76,6 +77,8 @@ void GameLoopSystem::run() {
 
 
   do {
+    rmt_ScopedCPUSample(GameLoop, 0);
+
     Uint32 newTime = SDL_GetTicks();
     Uint32 frameTime = newTime - currentTime;
 
@@ -90,6 +93,7 @@ void GameLoopSystem::run() {
 
     m_events->fire<"StartFrame"_sh>();
 
+    rmt_BeginCPUSample(Simulate, 0);
     while (accumulator >= dt) {
       m_events->fire<"StartSimulate"_sh>();
       m_events->fire<SimulateEvent>({float(dt)/1000, float(t)/1000});
@@ -148,22 +152,24 @@ void GameLoopSystem::run() {
       t += dt;
       accumulator -= dt;
     }
-    
-    m_lastSimulateFrameTime = (double)(SDL_GetPerformanceCounter() - counterStart) * 1000.0 / SDL_GetPerformanceFrequency();
-    counterStart = SDL_GetPerformanceCounter();
+    rmt_EndCPUSample();
 
+    rmt_BeginCPUSample(PrepareDraw, 0);
     const double alpha = double(accumulator) / dt;
     m_events->fire<PrepareDrawEvent>({ alpha, float(t) / 1000 });
-    m_lastPerpareDrawTime = (double)(SDL_GetPerformanceCounter() - counterStart) * 1000.0 / SDL_GetPerformanceFrequency();
-    
-    counterStart = SDL_GetPerformanceCounter();
+    rmt_EndCPUSample();
+
+    rmt_BeginCPUSample(Draw, 0);
     m_events->fire<DrawEvent>({ alpha, float(t) / 1000 });
-    m_lastDrawTime = (double)(SDL_GetPerformanceCounter() - counterStart) * 1000.0 / SDL_GetPerformanceFrequency();
-    
-    counterStart = SDL_GetPerformanceCounter();
+    rmt_EndCPUSample();
+
+    rmt_BeginCPUSample(Swap, 0);
     m_window->swap();
+    rmt_EndCPUSample();
+
+    rmt_BeginCPUSample(EndFrame, 0);
     m_events->fire<"EndFrame"_sh>();
-    m_lastSwapTime = (double)(SDL_GetPerformanceCounter() - counterStart) * 1000.0 / SDL_GetPerformanceFrequency();
+    rmt_EndCPUSample();
 
   } // Check if the window was closed
   while (!quit);

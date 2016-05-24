@@ -27,8 +27,8 @@ int main(int argc, char *argv[]) {
   // If you try to initialize a system before it's dependencies you'll get an error message in the console
   Context context;
   SettingsSystem settings(&context, "data/", "textures/", "geometry/", "shader/", "sound/", configFile);
-  ProfilerSystem profiler(&context);
   WindowSystem window(&context, 1280, 720, false);
+  ProfilerSystem profiler(&context);
   EventSystem events(&context);
   RendererSystem renderer(&context);
   SceneGraphSystem sceneGraph(&context);

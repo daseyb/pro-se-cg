@@ -14,6 +14,7 @@
 #include <glm/ext.hpp>
 
 #include <engine/ui/imgui.h>
+#include <engine/utils/Remotery.h>
 
 using namespace ACGL::OpenGL;
 using namespace ACGL::Base;
@@ -656,13 +657,23 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 }
 
 void RendererSystem::frame(double interp, double totalTime) {
+  rmt_BeginOpenGLSample(RenderFrame);
+  rmt_BeginCPUSample(RenderFrame, 0);
+
   m_frameIndex++;
 
+  rmt_BeginOpenGLSample(ClearBuffer);
+  rmt_BeginCPUSample(ClearBuffer, 0);
   m_primaryCompositingBuffer->setClearColor(glm::vec4{ 0, 0, 0, 0 });
   m_primaryCompositingBuffer->bind();
   m_primaryCompositingBuffer->clearBuffers();
+  rmt_EndCPUSample(ClearBuffer, 0);
+  rmt_EndOpenGLSample();
 
+  rmt_BeginOpenGLSample(RenderPasses);
+  rmt_BeginCPUSample(RenderPasses, 0);
   for (auto& pass : m_passes) {
+    rmt_ScopedCPUSample(DrawPass, 0);
     if (pass.active) {
       render(pass, interp, totalTime);
     }
@@ -670,6 +681,8 @@ void RendererSystem::frame(double interp, double totalTime) {
     pass.submittedDrawCallsTransparent.reset();
     pass.submittedLights.reset();
   }
+  rmt_EndCPUSample();
+  rmt_EndOpenGLSample();
 
   m_totalLightCount = 0;
 
@@ -677,8 +690,8 @@ void RendererSystem::frame(double interp, double totalTime) {
   VertexArrayObject vao;
   vao.bind(); // 'empty' VAO -> no attributes are defined
 
-  Uint64 counterStart = SDL_GetPerformanceCounter();
-
+  rmt_BeginOpenGLSample(PostFX);
+  rmt_BeginCPUSample(PostFX, 0);
   for (auto& fx : m_effects) {
     fx->apply(m_primaryCompositingBuffer->getColorAttachments()[0].texture, m_postfxTargetBuffer);
     
@@ -686,7 +699,11 @@ void RendererSystem::frame(double interp, double totalTime) {
     m_primaryCompositingBuffer = m_postfxTargetBuffer;
     m_postfxTargetBuffer = temp;
   }
+  rmt_EndCPUSample();
+  rmt_EndOpenGLSample();
 
+  rmt_BeginOpenGLSample(Blit);
+  rmt_BeginCPUSample(Blit, 0);
   glViewport(0, 0, m_window->getSize().x, m_window->getSize().y);
   // Blit to backbuffer with tonemapping
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -697,8 +714,11 @@ void RendererSystem::frame(double interp, double totalTime) {
       0);
 
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // create 2 triangles (defined in shader) with no attributes
+  rmt_EndCPUSample();
+  rmt_EndOpenGLSample();
 
-  m_lastPostprocessingTime = (double)(SDL_GetPerformanceCounter() - counterStart) * 1000.0 / SDL_GetPerformanceFrequency();
+  rmt_EndCPUSample();
+  rmt_EndOpenGLSample();
 }
 
 void RendererSystem::shutdown() {

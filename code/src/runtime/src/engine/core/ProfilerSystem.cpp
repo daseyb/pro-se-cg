@@ -1,5 +1,4 @@
 #include <engine/core/ProfilerSystem.hpp>
-#include <engine/utils/Remotery.h>
 
 bool ProfilerSystem::startup() {
     rmt_CreateGlobalInstance(&m_instance);
