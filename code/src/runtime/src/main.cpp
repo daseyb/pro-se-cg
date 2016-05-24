@@ -3,6 +3,7 @@
 
 #include <engine/events/EventSystem.hpp>
 #include <engine/core/SettingsSystem.hpp>
+#include <engine/core/ProfilerSystem.hpp>
 #include <engine/core/WindowSystem.hpp>
 #include <engine/audio/AudioSystem.hpp>
 #include <engine/graphics/RendererSystem.hpp>
@@ -26,6 +27,7 @@ int main(int argc, char *argv[]) {
   // If you try to initialize a system before it's dependencies you'll get an error message in the console
   Context context;
   SettingsSystem settings(&context, "data/", "textures/", "geometry/", "shader/", "sound/", configFile);
+  ProfilerSystem profiler(&context);
   WindowSystem window(&context, 1280, 720, false);
   EventSystem events(&context);
   RendererSystem renderer(&context);
@@ -40,6 +42,7 @@ int main(int argc, char *argv[]) {
   // This means it's safe to access other systems in a startup function as long
   // as you depend on them
   if (!context.startup()) {
+
     ACGL::Utils::error() << "Some systems failed to start up. Exiting!"
       << std::endl;
     return -1;
