@@ -27,13 +27,9 @@ if (OPENGL_FOUND)
     MESSAGE("OpenGL environment missing")
 endif (OPENGL_FOUND)
 
-# ACGL setup:
-add_definitions(-DACGL_ERROR_LEVEL_EC3)
-set(ACGL_OPENGL_SUPPORT CORE_42)
-add_definitions(-DACGL_OPENGL_VERSION_42)
+add_subdirectory(extern/glow)
+include_directories(${GLOW_INCLUDE_DIRECTORIES})
 
-add_subdirectory(extern/acgl)
-include_directories(extern/acgl/include)
 
 set(SDL_STATIC ON)
 set(SDL_SHARED OFF)
@@ -54,9 +50,7 @@ set(DLLS ${FMOD_DLLS})
 add_subdirectory(extern/portmidi)
 include_directories(extern/portmidi/pm_common)
 
-set(LIBRARIES ACGL${COMPILE_POSTFIX} SDL2-static SDL2main portmidi-static ${OPENGL_LIBRARIES} ${FMOD_LIBRARIES})
-
-
+set(LIBRARIES glow SDL2-static SDL2main portmidi-static ${OPENGL_LIBRARIES} ${FMOD_LIBRARIES})
 
 #
 # MacOS X:

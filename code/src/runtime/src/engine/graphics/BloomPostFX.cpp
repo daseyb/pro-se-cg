@@ -1,13 +1,13 @@
 #include <engine/graphics/BloomPostFX.hpp>
-#include <ACGL/OpenGL/Creator/ShaderProgramCreator.hh>
-#include <ACGL/OpenGL/Managers.hh>
 #include <engine/graphics/RendererSystem.hpp>
 #include <engine/events/EventSystem.hpp>
 #include <engine/ui/UISystem.hpp>
+#include <glow/objects/Framebuffer.hh>
+#include <glow/objects/Program.hh>
+#include <glow/objects/Texture2D.hh>
 
-using namespace ACGL::OpenGL;
-using namespace ACGL::Base;
-using namespace ACGL::Utils;
+using namespace glow;
+
 
 float computeGaussian(float n) {
   float theta = 4;
@@ -18,28 +18,18 @@ float computeGaussian(float n) {
 
 void BloomPostFX::startup() {
 
-
   m_extractTexture = m_renderer->createScreenspaceTexture(ScreenSpaceSize::HALF, GL_RGBA32F);
-  m_extractBuffer = SharedFrameBufferObject(new FrameBufferObject());
-  m_extractBuffer->attachColorTexture("oColor", m_extractTexture);
-  m_extractBuffer->validate();
-  m_extractBuffer->setClearColor(glm::vec4(0, 0, 0, 0));
+  m_extractBuffer = Framebuffer::create({{ "oColor", m_extractTexture }});
 
   m_blurTextureHorizontal = m_renderer->createScreenspaceTexture(ScreenSpaceSize::HALF, GL_RGBA32F);
-  m_blurBufferHorizontal = SharedFrameBufferObject(new FrameBufferObject());
-  m_blurBufferHorizontal->attachColorTexture("oColor", m_blurTextureHorizontal);
-  m_blurBufferHorizontal->validate();
-  m_blurBufferHorizontal->setClearColor(glm::vec4(0, 0, 0, 0));
+  m_blurBufferHorizontal = Framebuffer::create({ { "oColor", m_blurTextureHorizontal } });
 
   m_blurTextureVertical = m_renderer->createScreenspaceTexture(ScreenSpaceSize::HALF, GL_RGBA32F);
-  m_blurBufferVertical = SharedFrameBufferObject(new FrameBufferObject());
-  m_blurBufferVertical->attachColorTexture("oColor", m_blurTextureVertical);
-  m_blurBufferVertical->validate();
-  m_blurBufferVertical->setClearColor(glm::vec4(0, 0, 0, 0));
+  m_blurBufferVertical = Framebuffer::create({ { "oColor", m_blurTextureVertical } });
 
-  m_blitProgram = ShaderProgramFileManager::the()->get(ShaderProgramCreator("Bloom/Blit"));
-  m_extractProgram = ShaderProgramFileManager::the()->get(ShaderProgramCreator("Bloom/Extract"));
-  m_blurProgram = ShaderProgramFileManager::the()->get(ShaderProgramCreator("Bloom/Blur").fragmentDataLocations(m_blurBufferHorizontal->getAttachmentLocations()));
+  m_blitProgram = Program::createFromFile("Bloom/Blit");
+  m_extractProgram = Program::createFromFile("Bloom/Extract");
+  m_blurProgram = Program::createFromFile("Bloom/Blur");
 
   size_t sampleCount = m_gaussianWeights.size();
   // The first sample always has a zero offset.
@@ -66,28 +56,22 @@ void BloomPostFX::startup() {
     m_gaussianWeights[i] /= totalWeights;
   }
 
-  /*m_events->subscribe<"DrawUI"_sh>([this]() {
-    ImGui::Begin("Bloom", 0, ImGuiWindowFlags_AlwaysAutoResize);
-    ImGui::Image((void*)m_extractTexture->getObjectName(), glm::vec2{ 1280, 720 } *0.2f, { 0, 1 }, { 1, 0 });
-    ImGui::Image((void*)m_blurTexture->getObjectName(), glm::vec2{ 1280, 720 } *0.2f, { 0, 1 }, { 1, 0 });
-    ImGui::End();
-  });*/
 }
 
-void BloomPostFX::apply(ACGL::OpenGL::ConstSharedTextureBase inputBuffer, ACGL::OpenGL::SharedFrameBufferObject outputBuffer) {
+void BloomPostFX::apply(glow::SharedTexture2D inputBuffer, glow::SharedFramebuffer outputBuffer) {
 
   auto bloomSize = glm::vec2(m_extractTexture->getWidth(), m_extractTexture->getHeight());
 
   glDisable(GL_BLEND);
 
   // Extract bright pixels
-  m_extractBuffer->bind();
-  m_extractBuffer->clearBuffers();
+  auto boundBuffer = m_extractBuffer->bind();
+  glClear(GL_COLOR_BUFFER_BIT);
   glViewport(0, 0, (int)bloomSize.x, (int)bloomSize.y);
 
-  m_extractProgram->use();
-  m_extractProgram->setTexture("uSamplerColor", inputBuffer, 0);
-  m_extractProgram->setUniform("uThreshold", 0.9f);
+  auto extractProgramUsed = m_extractProgram->use();
+  extractProgramUsed.setTexture("uSamplerColor", inputBuffer);
+  extractProgramUsed.setUniform("uThreshold", 0.9f);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
   std::array<glm::vec2, 15> offsets;
@@ -96,11 +80,11 @@ void BloomPostFX::apply(ACGL::OpenGL::ConstSharedTextureBase inputBuffer, ACGL::
   const static float scales[] = { 1, 2, 4.0 };
 
   outputBuffer->bind();
-  outputBuffer->clearBuffers();
+  glClear(GL_COLOR_BUFFER_BIT);
   glViewport(0, 0, inputBuffer->getWidth(), inputBuffer->getHeight());
-  m_blitProgram->use();
-  m_blitProgram->setTexture("uSamplerBlur", inputBuffer, 0);
-  m_blitProgram->setUniform("uBloomFactor", 1.0f);
+  auto blitProgramUsed = m_blitProgram->use();
+  blitProgramUsed.setTexture("uSamplerBlur", inputBuffer);
+  blitProgramUsed.setUniform("uBloomFactor", 1.0f);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
   auto blurSrc = m_extractTexture;
@@ -109,26 +93,25 @@ void BloomPostFX::apply(ACGL::OpenGL::ConstSharedTextureBase inputBuffer, ACGL::
     glViewport(0, 0, (int)bloomSize.x, (int)bloomSize.y);
     // Blur horizontally
     m_blurBufferHorizontal->bind();
-    m_blurBufferHorizontal->clearBuffers();
-    m_blurProgram->use();
-    m_blurProgram->setUniform("uSampleWeights", m_gaussianWeights.size(), m_gaussianWeights.data());
+    auto blurProgramUsed = m_blurProgram->use();
+    blurProgramUsed.setUniform("uSampleWeights", m_gaussianWeights.size(), m_gaussianWeights.data());
 
-    m_blurProgram->setTexture("uSamplerColor", blurSrc, 0);
+    blurProgramUsed.setTexture("uSamplerColor", blurSrc);
     for (size_t i = 0; i < offsets.size(); i++) {
       offsets[i] = glm::vec2(m_sampleOffsets[i] * scales[pass] / blurSrc->getWidth(), 0);
     }
-    m_blurProgram->setUniform("uSampleOffsets", offsets.size(), offsets.data());
+    blurProgramUsed.setUniform("uSampleOffsets", offsets.size(), offsets.data());
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     // Blur vertically
     m_blurBufferVertical->bind();
-    m_blurBufferVertical->clearBuffers();
-    m_blurProgram->setTexture("uSamplerColor", m_blurTextureHorizontal, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    blurProgramUsed.setTexture("uSamplerColor", m_blurTextureHorizontal);
 
     for (size_t i = 0; i < offsets.size(); i++) {
       offsets[i] = glm::vec2(0, m_sampleOffsets[i] * scales[pass] / m_blurTextureHorizontal->getHeight());
     }
-    m_blurProgram->setUniform("uSampleOffsets", offsets.size(), offsets.data());
+    blurProgramUsed.setUniform("uSampleOffsets", offsets.size(), offsets.data());
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     // Add to output
@@ -136,9 +119,9 @@ void BloomPostFX::apply(ACGL::OpenGL::ConstSharedTextureBase inputBuffer, ACGL::
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     glViewport(0, 0, inputBuffer->getWidth(), inputBuffer->getHeight());
     outputBuffer->bind();
-    m_blitProgram->use();
-    m_blitProgram->setTexture("uSamplerBlur", m_blurTextureVertical, 0);
-    m_blitProgram->setUniform("uBloomFactor", weights[pass]);
+    auto blitProgramUsed = m_blitProgram->use();
+    blitProgramUsed.setTexture("uSamplerBlur", m_blurTextureVertical);
+    blitProgramUsed.setUniform("uBloomFactor", weights[pass]);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glDisable(GL_BLEND);
 

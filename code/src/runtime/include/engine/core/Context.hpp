@@ -3,11 +3,12 @@
 #include <vector>
 #include <typeinfo>
 #include <engine/core/System.hpp>
+#include <glow/common/log.hh>
 
 #define RESOLVE_DEPENDENCY(system) \
   system = m_context->get<std::decay<decltype(*system)>::type>(); \
-  if (!system) {ACGL::Utils::error() << "Could not resolve dependency on system: " << #system \
-                                     << " in system " << typeid(*this).name() << std::endl; return false; }
+  if (!system) {glow::error() << "Could not resolve dependency on system: " << #system \
+                                     << " in system " << typeid(*this).name() << '\n'; return false; }
 
 class Context {
 public:

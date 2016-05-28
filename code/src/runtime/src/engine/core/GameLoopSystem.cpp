@@ -1,7 +1,6 @@
 #include <engine/core/GameLoopSystem.hpp>
 #include <engine/events/DrawEvent.hpp>
 #include <engine/events/PrepareDrawEvent.hpp>
-#include <ACGL/ACGL.hh>
 #include <engine/utils/Remotery.h>
 
 #include <engine/events/ControllerEvent.hpp>
@@ -37,17 +36,6 @@ bool GameLoopSystem::startup() {
     frameTimeIndex = (frameTimeIndex + 1) % m_frameTimeHistory.size();
     
     ImGui::Text("FPS:          %d", (int)(1000.0f/(totalFrameTime)));
-    ImGui::Separator();
-    ImGui::Text("Simulate:     %.5f ms", m_lastSimulateFrameTime);
-    ImGui::Text("Perpare Draw: %.5f ms", m_lastPerpareDrawTime);
-    ImGui::Text("Draw:         %.5f ms", m_lastDrawTime);
-    ImGui::Text("- GBuffer Render:     %.5f ms", m_renderer->m_lastGBufferRenderTime);
-    ImGui::Text("-- Setup:             %.5f ms", m_renderer->m_lastGBufferRenderSetupTime);
-    ImGui::Text("-- Submit:            %.5f ms", m_renderer->m_lastGBufferRenderSubmitTime);
-    ImGui::Text("- Shadow Render:      %.5f ms", m_renderer->m_lastShadowMapRenderTime);
-    ImGui::Text("- GBuffer Resolve:    %.5f ms", m_renderer->m_lastGBufferResolveTime);
-    ImGui::Text("- Post FX:            %.5f ms", m_renderer->m_lastPostprocessingTime);
-    ImGui::Text("Wait for Swap:%.5f ms", m_lastSwapTime);
     ImGui::Separator();
     ImGui::PlotHistogram("", m_frameTimeHistory.data(), m_frameTimeHistory.size(), 0, NULL, 0, 100, glm::vec2(250, 100));
     ImGui::Separator();
@@ -88,8 +76,6 @@ void GameLoopSystem::run() {
 
     currentTime = newTime;
     accumulator += frameTime;
-
-    auto counterStart = SDL_GetPerformanceCounter();
 
     m_events->fire<"StartFrame"_sh>();
 

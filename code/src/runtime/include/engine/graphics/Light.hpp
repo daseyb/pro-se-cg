@@ -1,5 +1,4 @@
 #include <engine/scene/Entity.hpp>
-#include <ACGL/Math/Math.hh>
 
 enum class LightType {
   POINT,

@@ -1,6 +1,5 @@
 #pragma once
 #include <engine/scene/Entity.hpp>
-#include <ACGL/Math/Math.hh>
 #include <engine/graphics/Geometry.hpp>
 #include <engine/graphics/Material.hpp>
 

@@ -1,5 +1,5 @@
 #include <engine/audio/MidiSystem.hpp>
-#include <ACGL/ACGL.hh>
+#include <glow/common/log.hh>
 #include <engine/core/SimulateEvent.hpp>
 #include <engine/audio/RawMidiEvent.hpp>
 #include <engine/audio/MidiNoteEvent.hpp>
@@ -22,30 +22,35 @@ bool MidiSystem::startup() {
   PmError error = Pm_Initialize();
 
   if (error) {
-    ACGL::Utils::error() << Pm_GetErrorText(error) << std::endl;
+    glow::error() << Pm_GetErrorText(error) << "\n";
     return false;
   }
 
   int deviceCount = Pm_CountDevices();
-  ACGL::Utils::debug() << "MIDI Device count: " << Pm_CountDevices()
-                       << std::endl;
+  glow::debug() << "MIDI Device count: " << Pm_CountDevices()
+                       << "\n";
 
   if (deviceCount == 0) {
-    ACGL::Utils::debug() << "No MIDI input devices found!" << std::endl;
+      glow::debug() << "No MIDI input devices found!" << "\n";
     return true;
   }
 
   PmDeviceID defaultDeviceId = Pm_GetDefaultInputDeviceID();
-  ACGL::Utils::debug() << "Default Input Device ID: " << defaultDeviceId
-                       << std::endl;
+  glow::debug() << "Default Input Device ID: " << defaultDeviceId
+                       << "\n";
+
+  if (defaultDeviceId == -1) {
+      glow::debug() << "No default MIDI input device found!" << "\n";
+      return true;
+  }
 
   const PmDeviceInfo *defaultDeviceInfo = Pm_GetDeviceInfo(defaultDeviceId);
-  ACGL::Utils::debug() << "Default Input Device Name: "
-                       << defaultDeviceInfo->name << std::endl;
+  glow::debug() << "Default Input Device Name: "
+                       << defaultDeviceInfo->name << "\n";
 
   error = Pm_OpenInput(&m_inputStream, defaultDeviceId, NULL, 32, NULL, NULL);
   if (error) {
-    ACGL::Utils::error() << Pm_GetErrorText(error) << std::endl;
+      glow::error() << Pm_GetErrorText(error) << "\n";
     return false;
   }
 

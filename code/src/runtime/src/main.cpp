@@ -12,14 +12,16 @@
 #include <engine/scene/SceneGraphSystem.hpp>
 #include <engine/audio/MidiSystem.hpp>
 
+#include <engine/scene/Drawable.hpp>
+
 int main(int argc, char *argv[]) {
-  std::string configFile = argv[1];
 #if _DEBUG
   if (argc != 2) {
     std::cout << "Usage: <config file>" << std::endl;
     return -1;
   }
 #endif
+  std::string configFile = argv[1];
 
   // Set up the systems we want to use.
   // They depends on each other so we need to add them to the context in the right order
@@ -43,14 +45,24 @@ int main(int argc, char *argv[]) {
   // as you depend on them
   if (!context.startup()) {
 
-    ACGL::Utils::error() << "Some systems failed to start up. Exiting!"
-      << std::endl;
+    glow::error() << "Some systems failed to start up. Exiting!"
+      << "\n";
     return -1;
   }
 
-  
-
   window.setWindowTitle("Orion");
+
+  Entity camera = sceneGraph.create();
+  auto camTransform = camera.assign<Transform>();
+  camera.assign<Camera>(90.0f, 0.01f, 100.0f);
+  renderer.addRenderPass(camera, "Main"_sh);
+
+  Geometry sphereGeom = { 2.0f };
+  Material sphereMat = { {1.0f, 1.0f, 1.0f, 1.0f}, { 0.0f, 0.0f, 0.0f, 0.0f }, RenderQueue::OPAQUE };
+  Entity sphere = sceneGraph.create();
+  sphere.assign<Transform>();
+  sphere.assign<Drawable>( sphereGeom, sphereMat );
+
   // Kickoff the gameloop
   // This is what actually runs the game
   gameLoop.run();

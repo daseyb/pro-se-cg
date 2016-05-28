@@ -9,11 +9,18 @@
 #include <engine/graphics/Camera.hpp>
 #include <engine/scene/Transform.hpp>
 
-#include <ACGL/OpenGL/Objects.hh>
+#include <glow/fwd.hh>
+#include <glow/gl.hh>
+#include <glow/objects/Texture2D.hh>
+#include <glow/objects/Framebuffer.hh>
 
 #include <engine/graphics/Light.hpp>
 #include <engine/graphics/PostFX.hpp>
 #include <engine/graphics/RenderQueue.hpp>
+
+#undef OPAQUE
+#undef TRANSPARENT
+using namespace glow;
 
 struct LightData {
   glm::vec4 color;
@@ -24,17 +31,14 @@ struct LightData {
   TransformData lastSimulateTransform;
   TransformData thisSimulateTransform;
   glm::mat4 projMatrix;
-
-  ACGL::OpenGL::SharedFrameBufferObject shadowFbo;
-  ACGL::OpenGL::ConstSharedTextureBase shadowMap;
 };
 
 struct RenderPass {
   Stack<DrawCall> submittedDrawCallsOpaque;
   Stack<DrawCall> submittedDrawCallsTransparent;
   Stack<LightData> submittedLights;
-  ACGL::OpenGL::SharedFrameBufferObject compositingTarget;
-  ACGL::OpenGL::SharedFrameBufferObject txaaHistory;
+  glow::SharedFramebuffer compositingTarget;
+  glow::SharedFramebuffer txaaHistory;
   Entity camera;
   bool active;
   bool renderToTextureOnly;
@@ -43,8 +47,6 @@ struct RenderPass {
 
 class RendererSystem : public System {
 private:
-  const glm::vec2 SHADOW_MAP_RESOLUTION = {2048, 2048};
-  const float SHADOW_MAP_SCALE_FACTOR[3] = {0.25f, 0.5f, 1.0f};
   const ScreenSpaceSize G_BUFFER_SIZE[3] = {
       ScreenSpaceSize::HALF, ScreenSpaceSize::FULL, ScreenSpaceSize::FULL};
 
@@ -62,10 +64,6 @@ private:
 
   std::vector<std::shared_ptr<PostFX>> m_effects;
 
-  const int SHADOW_MAP_COUNT = 2;
-  std::vector<ACGL::OpenGL::SharedFrameBufferObject> m_shadowMaps;
-  ACGL::OpenGL::SharedTexture2D m_dummyShadowMap;
-
   std::vector<ScreenSpaceTexture> m_screenSpaceTextures;
 
   SharedTexture2D m_colorBuffer;
@@ -74,46 +72,26 @@ private:
   SharedTexture2D m_depthBuffer;
   SharedTexture2D m_specularBuffer;
 
-  SharedTexture2D m_ssaoNoise;
-  SharedTexture2D m_ssaoKernel;
+  glow::SharedFramebuffer m_gBufferObject;
 
-  ACGL::OpenGL::SharedFrameBufferObject m_ssaoTarget;
+  glow::SharedFramebuffer m_primaryCompositingBuffer;
+  glow::SharedFramebuffer m_secondaryCompositingBuffer;
+  glow::SharedFramebuffer m_postfxTargetBuffer;
 
-  ACGL::OpenGL::SharedFrameBufferObject m_gBufferObject;
+  SharedProgram m_blitProgram;
+  SharedProgram m_passBlitProgram;
 
-  ACGL::OpenGL::SharedFrameBufferObject m_primaryCompositingBuffer;
-  ACGL::OpenGL::SharedFrameBufferObject m_secondaryCompositingBuffer;
-  ACGL::OpenGL::SharedFrameBufferObject m_postfxTargetBuffer;
+  SharedProgram m_raycastComputeProgram;
 
-  SharedShaderProgram m_deferredCombineProgram;
-  SharedShaderProgram m_blitProgram;
-  SharedShaderProgram m_passBlitProgram;
-  SharedShaderProgram m_shadowMapProg;
+  SharedProgram m_txaaProg;
 
-  SharedShaderProgram m_ssaoComputeProg;
-  SharedShaderProgram m_ssaoBlurProg;
-
-  SharedShaderProgram m_txaaProg;
+  SharedBuffer m_camDataBuffer;
 
   uint64_t m_frameIndex = 0;
 
   void render(RenderPass &pass, double interp, double totalTime);
 
 public:
-  double m_lastGBufferRenderTime;
-  double m_lastGBufferRenderSetupTime;
-  double m_lastGBufferRenderSubmitTime;
-
-  double m_lastShadowMapRenderTime;
-  double m_lastGBufferResolveTime;
-  double m_lastPostprocessingTime;
-
-  ACGL::OpenGL::SharedVertexArrayObject m_transformFeedbackVAO;
-  ACGL::OpenGL::SharedArrayBuffer m_transformFeedbackBuffer;
-
-  ACGL::OpenGL::SharedVertexArrayObject m_transformFeedbackVAO2;
-  ACGL::OpenGL::SharedArrayBuffer m_transformFeedbackBuffer2;
-
   CONSTRUCT_SYSTEM(RendererSystem) {}
 
   bool startup() override;
@@ -122,15 +100,9 @@ public:
   void addRenderPass(Entity cam, StringHash name,
                      ScreenSpaceSize size = ScreenSpaceSize::FULL) {
     cam.component<Camera>()->renderPassIndex = m_passes.size();
-    auto target = SharedFrameBufferObject(new FrameBufferObject());
-    target->attachColorTexture("oColor",
-                               createScreenspaceTexture(size, GL_RGBA32F));
-    target->validate();
+    auto target = Framebuffer::create({ { "oColor", createScreenspaceTexture(size, GL_RGBA32F) } });
 
-    auto txaa = SharedFrameBufferObject(new FrameBufferObject());
-    txaa->attachColorTexture("oColor",
-                             createScreenspaceTexture(size, GL_RGBA32F));
-    txaa->validate();
+    auto txaa = Framebuffer::create({ { "oColor", createScreenspaceTexture(size, GL_RGBA32F) } });
 
     m_passIds[name] = m_passes.size();
     m_passes.push_back({kilobytes(4), kilobytes(4), kilobytes(4), target, txaa,
@@ -164,7 +136,7 @@ public:
     m_passes[id].renderToTextureOnly = active;
   }
 
-  ACGL::OpenGL::ConstSharedTextureBase getRenderPassTarget(StringHash pass) {
+  glow::SharedTexture getRenderPassTarget(StringHash pass) {
     auto id = getRenderPassId(pass);
     if (id == -1) {
       return nullptr;
@@ -198,21 +170,15 @@ public:
     if (passIndex >= m_passes.size())
       return;
 
-    if (light.castShadow && m_totalLightCount < m_shadowMaps.size()) {
-      light.shadowFbo = m_shadowMaps[m_totalLightCount];
-      light.shadowMap = light.shadowFbo->getDepthAttachment().texture;
-      m_totalLightCount++;
-    }
-
     m_passes[passIndex].submittedLights.push(light);
   }
 
-  inline SharedLocationMappings getGBufferLocations() {
-    return m_gBufferObject->getAttachmentLocations();
+  inline SharedLocationMapping getGBufferLocations() {
+    return m_gBufferObject->getFragmentMapping();
   }
 
-  inline SharedLocationMappings getTransparentLocations() {
-    return m_primaryCompositingBuffer->getAttachmentLocations();
+  inline SharedLocationMapping getTransparentLocations() {
+    return m_primaryCompositingBuffer->getFragmentMapping();
   }
 
   template <typename T, typename... Args>
@@ -225,18 +191,16 @@ public:
     }
   }
 
-  ACGL::OpenGL::SharedTexture2D
+  glow::SharedTexture2D
   createScreenspaceTexture(ScreenSpaceSize size, GLenum internalFormat) {
     auto windowSize = m_window->getSize();
-    auto tex =
-        SharedTexture2D(new Texture2D({windowSize.x * 1.0f / (1 << (int)size),
-                                       windowSize.y * 1.0f / (1 << (int)size)},
-                                      internalFormat));
-
-    tex->setMinFilter(GL_LINEAR);
-    tex->setMagFilter(GL_LINEAR);
-    tex->setWrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
-
+    auto tex = Texture2D::create(windowSize.x * 1.0f / (1 << (int)size), windowSize.y * 1.0f / (1 << (int)size), internalFormat);
+    
+    auto boundTex = tex->bind();
+    boundTex.setMinFilter(GL_LINEAR);
+    boundTex.setMagFilter(GL_LINEAR);
+    boundTex.setWrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
+    
     m_screenSpaceTextures.push_back({size, tex}); // RGBA per default
     return tex;
   }
@@ -245,4 +209,4 @@ public:
 };
 
 glm::mat4 interpolate(TransformData a, TransformData b, double t,
-                      glm::dvec3 camPos);
+                      glm::vec3 camPos);

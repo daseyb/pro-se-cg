@@ -1,10 +1,10 @@
 #include <engine/audio/AudioSystem.hpp>
-#include <ACGL/ACGL.hh>
 #include <engine/audio/SoundSource.hpp>
 #include <engine/scene/Transform.hpp>
 #include <assert.h>
+#include <glow/common/log.hh>
 
-#define CHECK_RESULT(res, msg) if(res != FMOD_OK) {ACGL::Utils::error() << msg << std::endl; return false; }
+#define CHECK_RESULT(res, msg) if(res != FMOD_OK) {glow::error() << msg << "\n"; return false; }
 
 
 bool AudioSystem::startup() {

@@ -1,15 +1,11 @@
 #include <engine/core/WindowSystem.hpp>
-#include <ACGL/ACGL.hh>
-#include <ACGL/OpenGL/GL.hh>
-#include <ACGL/Utils/StringHelpers.hh>
-#include <ACGL/OpenGL/glloaders/extensions.hh>
-
+#include <glow/glow.hh>
+#include <glow/gl.hh>
+#include <iostream>
+#include <glow/common/log.hh>
 #include <SDL_opengl.h>
 
 using namespace std;
-using namespace ACGL::OpenGL;
-using namespace ACGL::Base;
-using namespace ACGL::Utils;
 
 void WindowSystem::setSDLHintsForOpenGLVersion(unsigned int _version) {
 #ifdef __APPLE__
@@ -34,8 +30,7 @@ void WindowSystem::setSDLHintsForOpenGLVersion(unsigned int _version) {
 
 void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id,
                             GLenum severity, GLsizei length,
-                            const GLchar *message, void *userParam) {
-
+                            const GLchar *message, const void *userParam) {
   _CRT_UNUSED(id);
   _CRT_UNUSED(length);
   _CRT_UNUSED(severity);
@@ -70,8 +65,8 @@ void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id,
   else if (type == GL_DEBUG_TYPE_OTHER_ARB)
     cout << " something";
 
-  cout << endl;
-  cout << "The message was: " << message << endl << endl;
+  cout << "\n";
+  cout << "The message was: " << message << "\n" << "\n";
 }
 
 /**********************************************************************************************************************
@@ -80,11 +75,11 @@ void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id,
 */
 bool WindowSystem::createWindow() {
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-    error() << "SDL_Init Error: " << SDL_GetError() << std::endl;
+    glow::error() << "SDL_Init Error: " << SDL_GetError() << "\n";
     return false;
   }
 
-  setSDLHintsForOpenGLVersion(ACGL_OPENGL_VERSION);
+  setSDLHintsForOpenGLVersion(GLOW_OPENGL_VERSION);
 
   // request an OpenGL debug context:
   m_sdlWindow = SDL_CreateWindow(
@@ -92,8 +87,8 @@ bool WindowSystem::createWindow() {
       m_windowSize.x, m_windowSize.y, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | (m_fullscreen & SDL_WINDOW_FULLSCREEN));
 
   if (!m_sdlWindow) {
-    error() << "Failed to open a SDL window - requested OpenGL: "
-            << ACGL_OPENGL_VERSION << endl;
+      glow::error() << "Failed to open a SDL window - requested OpenGL: "
+            << GLOW_OPENGL_VERSION << "\n";
     return false;
   }
 
@@ -112,8 +107,8 @@ bool WindowSystem::createWindow() {
     return false;
   }
 
-  if (!ACGL::init(false)) {
-    error() << "Failed to init ACGL!" << endl;
+  if (!glow::initGLOW()) {
+      glow::error() << "Failed to init GLOW!" << "\n";
     return false;
   }
 
@@ -121,23 +116,6 @@ bool WindowSystem::createWindow() {
   if (SDL_GL_SetSwapInterval(m_settings->vsyncEnabled() ? 1 : 0) < 0) {
     printf("Warning: Unable to set VSync! SDL Error: %s\n", SDL_GetError());
   }
-
-#ifdef _DEBUG
-  /////////////////////////////////////////////////////////////////////////////////////
-  // Init debug-extension
-  //
-  if (ACGL_ARB_debug_output()) {
-    debug() << "GL_ARB_DEBUG_OUTPUT is supported, register callback" << endl;
-    glDebugMessageCallback(debugCallback, NULL);
-
-    // filter out the strange performance warnings about shader recompiles:
-    glDebugMessageControlARB(GL_DEBUG_SOURCE_API_ARB,
-                             GL_DEBUG_TYPE_PERFORMANCE_ARB,
-                             GL_DEBUG_SEVERITY_MEDIUM_ARB, 0, NULL, GL_FALSE);
-  } else {
-    debug() << "GL_ARB_DEBUG_OUTPUT is missing!" << endl;
-  }
-#endif
 
   return true;
 }

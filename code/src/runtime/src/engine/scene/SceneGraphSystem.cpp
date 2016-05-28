@@ -2,6 +2,7 @@
 #include <engine/events/PrepareDrawEvent.hpp>
 #include <engine/scene/Drawable.hpp>
 #include <engine/scene/Transform.hpp>
+#include <glm/ext.hpp>
 
 bool SceneGraphSystem::startup() {
   RESOLVE_DEPENDENCY(m_events);
@@ -104,7 +105,7 @@ void SceneGraphSystem::prepareDraw(double interp) {
     auto viewMatrix =  glm::lookAt<double>(glm::dvec3(light->dir), { 0.0, 0.0, 0.0 }, glm::dvec3(0.0, 1.0, 0.0));
     auto lightVP = glm::ortho<double>(-7, +7, -7, +7, -7, 7) * static_cast<glm::dmat4>(viewMatrix);
 
-    m_renderer->submit({light->color, light->castShadow,light->dir, light->type, transform->lastGlobalTransform, transform->thisGlobalTransform, lightVP, nullptr, nullptr}, light->renderPassIndex);
+    m_renderer->submit({light->color, light->castShadow,light->dir, light->type, transform->lastGlobalTransform, transform->thisGlobalTransform, lightVP}, light->renderPassIndex);
   }
 
 }

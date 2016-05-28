@@ -17,8 +17,8 @@ private:
   SharedTextureData m_fontTextureData;
   SharedTexture2D m_fontTexture;
 
-  SharedVertexArrayObject m_imguiVao;
-  SharedShaderProgram m_imguiProg;
+  SharedVertexArray m_imguiVao;
+  SharedProgram m_imguiProg;
   SharedArrayBuffer m_imguiBuffer;
   SharedElementArrayBuffer m_imguiElements;
 

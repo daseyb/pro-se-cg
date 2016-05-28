@@ -3,6 +3,23 @@ project(ORION C CXX)
 
 include_directories(${DEPENDENCY_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+MACRO (RECURSE_GROUPS dirname)
+    FILE(GLOB_RECURSE allfiles "${dirname}/*.*")
+    SET(ALL_FILES ${ALL_FILES} ${allfiles})
+    STRING(REGEX REPLACE ".*/([^/]*)" "\\1" maindir "${dirname}")
+
+    FOREACH(file ${allfiles})
+        STRING(REGEX REPLACE "${dirname}/(.*)/[^/]*" "\\1" loopdirname "${file}")
+        STRING(REGEX REPLACE "/" "\\\\" loopdirname "${loopdirname}")
+
+        IF(NOT "${file}" MATCHES "${dirname}/(.*)/[^/]*")
+            source_group("${maindir}" FILES  ${file})
+        ELSE()
+            source_group("${maindir}\\${loopdirname}" FILES  ${file})
+        ENDIF()
+    ENDFOREACH()
+ENDMACRO (RECURSE_GROUPS)
+
 SET(RUNTIME_BASE_DIR "${CMAKE_CURRENT_LIST_DIR}")
 # Find all used files of certain file-types
 FILE(GLOB_RECURSE SOURCE_FILES_C   "${RUNTIME_BASE_DIR}/src/*.c")

@@ -7,7 +7,6 @@
 #include <engine/core/SettingsSystem.hpp>
 #include <fmod.hpp>
 #include <tuple>
-#include <ACGL/Math/Math.hh>
 #include <engine/audio/Sound.hpp>
 
 enum class SoundMode : uint8_t {

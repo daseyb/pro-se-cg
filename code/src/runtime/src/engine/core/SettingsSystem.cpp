@@ -1,14 +1,14 @@
 #include <engine/core/SettingsSystem.hpp>
-#include <ACGL/ACGL.hh>
-#include <ACGL/Base/Settings.hh>
+#include <glow/glow.hh>
+#include <glow/objects/Program.hh>
+#include <glow/objects/Shader.hh>
+#include <glow/util/DefaultShaderParser.hh>
 
 #define PICOJSON_USE_INT64
 #include <engine/utils/picojson.h>
 
 #include <fstream>
 
-
-using namespace ACGL::Base;
 
 std::string getDirectory(std::string filename) {
   size_t found;
@@ -17,10 +17,17 @@ std::string getDirectory(std::string filename) {
 }
 
 bool SettingsSystem::startup() {
-  Settings::the()->setResourcePath(m_resourcePath);
+  glow::Program::setShaderReloading(true);
+  
+  auto defaultShaderParser = new glow::DefaultShaderParser();
+  defaultShaderParser->addIncludePath(m_resourcePath + m_shaderPath);
+  glow::SharedShaderParser parser = glow::SharedShaderParser(defaultShaderParser);
+  glow::Shader::setShaderParser(parser);
+
+  /*Settings::the()->setResourcePath(m_resourcePath);
   Settings::the()->setTexturePath(m_texturePath);
   Settings::the()->setGeometryPath(m_geometryPath);
-  Settings::the()->setShaderPath(m_shaderPath);
+  Settings::the()->setShaderPath(m_shaderPath);*/
 
   
   std::ifstream configFile(m_resourcePath + m_configFilePath);

@@ -1,7 +1,7 @@
 #pragma once
 #include <engine/core/Context.hpp>
 #include <engine/core/System.hpp>
-#include <ACGL/Math/Math.hh>
+#include <glm/glm.hpp>
 
 enum class QualitySetting {
   Low = 0,

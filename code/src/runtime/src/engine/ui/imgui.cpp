@@ -1639,7 +1639,7 @@ void ImGui::ItemSize(const ImVec2& size, float text_offset_y)
 
 void ImGui::ItemSize(const ImRect& bb, float text_offset_y)
 {
-    ItemSize(bb.GetSize(), text_offset_y);
+    ItemSize(bb.getDim(), text_offset_y);
 }
 
 // Declare item bounding box for clipping and interaction.
@@ -3023,7 +3023,7 @@ ImVec2 ImGui::GetItemRectMax()
 ImVec2 ImGui::GetItemRectSize()
 {
     ImGuiWindow* window = GetCurrentWindowRead();
-    return window->DC.LastItemRect.GetSize();
+    return window->DC.LastItemRect.getDim();
 }
 
 ImVec2 ImGui::CalcItemRectClosestPoint(const ImVec2& pos, bool on_edge, float outward)
@@ -3697,7 +3697,7 @@ bool ImGui::Begin(const char* name, bool* p_opened, const ImVec2& size_on_first_
                 window->SizeFull.x = window->AutoFitOnlyGrows ? ImMax(window->SizeFull.x, size_auto_fit.x) : size_auto_fit.x;
             if (window->AutoFitFramesY > 0)
                 window->SizeFull.y = window->AutoFitOnlyGrows ? ImMax(window->SizeFull.y, size_auto_fit.y) : size_auto_fit.y;
-            window->Size = window->TitleBarRect().GetSize();
+            window->Size = window->TitleBarRect().getDim();
         }
         else
         {
@@ -5559,7 +5559,7 @@ bool ImGui::CollapsingHeader(const char* label, const char* str_id, bool display
 
     const float collapser_width = g.FontSize + style.FramePadding.x*2;
     const ImRect text_bb(bb.Min, bb.Min + ImVec2(collapser_width + style.FramePadding.x*2*0 + (label_size.x > 0.0f ? label_size.x : 0.0f), label_size.y));
-    ItemSize(ImVec2(text_bb.GetSize().x, bb.GetSize().y), display_frame ? style.FramePadding.y : 0.0f);
+    ItemSize(ImVec2(text_bb.getDim().x, bb.getDim().y), display_frame ? style.FramePadding.y : 0.0f);
 
     const ImRect interact_bb = display_frame ? bb : ImRect(text_bb.Min, text_bb.Max + ImVec2(style.FramePadding.x*2,0.0f)); // FIXME
     bool opened = TreeNodeBehaviorIsOpened(id, (default_open ? ImGuiTreeNodeFlags_DefaultOpen : 0) | (display_frame ? ImGuiTreeNodeFlags_NoAutoExpandOnLog : 0));
@@ -5902,7 +5902,7 @@ bool ImGui::InputScalarAsWidgetReplacement(const ImRect& aabb, const char* label
 
     char buf[32];
     DataTypeFormatString(data_type, data_ptr, decimal_precision, buf, IM_ARRAYSIZE(buf));
-    bool value_changed = InputTextEx(label, buf, IM_ARRAYSIZE(buf), aabb.GetSize() - g.Style.FramePadding*2.0f, ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_AutoSelectAll);
+    bool value_changed = InputTextEx(label, buf, IM_ARRAYSIZE(buf), aabb.getDim() - g.Style.FramePadding*2.0f, ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_AutoSelectAll);
     if (g.ScalarAsInputTextId == 0)
     {
         // First frame
@@ -7132,7 +7132,7 @@ bool ImGui::InputTextEx(const char* label, char* buf, int buf_size, const ImVec2
     if (is_multiline)
     {
         ImGui::BeginGroup();
-        if (!ImGui::BeginChildFrame(id, frame_bb.GetSize()))
+        if (!ImGui::BeginChildFrame(id, frame_bb.getDim()))
         {
             ImGui::EndChildFrame();
             ImGui::EndGroup();
@@ -7952,7 +7952,7 @@ bool ImGui::Combo(const char* label, int* current_item, bool (*items_getter)(voi
         ImRect popup_rect(ImVec2(frame_bb.Min.x, frame_bb.Max.y), ImVec2(frame_bb.Max.x, frame_bb.Max.y + popup_height));
         popup_rect.Max.y = ImMin(popup_rect.Max.y, g.IO.DisplaySize.y - style.DisplaySafeAreaPadding.y); // Adhoc height limit for Combo. Ideally should be handled in Begin() along with other popups size, we want to have the possibility of moving the popup above as well.
         ImGui::SetNextWindowPos(popup_rect.Min);
-        ImGui::SetNextWindowSize(popup_rect.GetSize());
+        ImGui::SetNextWindowSize(popup_rect.getDim());
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, style.FramePadding);
 
         const ImGuiWindowFlags flags = ImGuiWindowFlags_ComboBox | ((window->Flags & ImGuiWindowFlags_ShowBorders) ? ImGuiWindowFlags_ShowBorders : 0);
@@ -8096,7 +8096,7 @@ bool ImGui::ListBoxHeader(const char* label, const ImVec2& size_arg)
     if (label_size.x > 0)
         RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label);
 
-    ImGui::BeginChildFrame(id, frame_bb.GetSize());
+    ImGui::BeginChildFrame(id, frame_bb.getDim());
     return true;
 }
 
@@ -8663,7 +8663,7 @@ void ImGui::EndGroup()
     if (group_data.AdvanceCursor)
     {
         window->DC.CurrentLineTextBaseOffset = ImMax(window->DC.PrevLineTextBaseOffset, group_data.BackupCurrentLineTextBaseOffset);      // FIXME: Incorrect, we should grab the base offset from the *first line* of the group but it is hard to obtain now.
-        ItemSize(group_bb.GetSize(), group_data.BackupCurrentLineTextBaseOffset);
+        ItemSize(group_bb.getDim(), group_data.BackupCurrentLineTextBaseOffset);
         ItemAdd(group_bb, NULL);
     }
 

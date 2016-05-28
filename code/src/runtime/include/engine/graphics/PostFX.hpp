@@ -1,5 +1,5 @@
 #pragma once
-#include <ACGL/OpenGL/Objects.hh>
+#include <glow/fwd.hh>
 #include <engine/core/SettingsSystem.hpp>
 
 enum class ScreenSpaceSize {
@@ -11,7 +11,7 @@ enum class ScreenSpaceSize {
 
 struct ScreenSpaceTexture {
   ScreenSpaceSize size;
-  ACGL::OpenGL::SharedTexture2D texture;
+  glow::SharedTexture2D texture;
 };
 
 class RendererSystem;
@@ -29,6 +29,6 @@ public:
 
   PostFX(RendererSystem* renderer, EventSystem* events, QualitySetting quality) : m_renderer(renderer), m_events(events), m_quality(quality) {};
   virtual void startup() = 0;
-  virtual void apply(ACGL::OpenGL::ConstSharedTextureBase inputBuffer, ACGL::OpenGL::SharedFrameBufferObject outputBuffer) = 0;
+  virtual void apply(glow::SharedTexture2D inputBuffer, glow::SharedFramebuffer outputBuffer) = 0;
   virtual void shutdown() = 0;
 };

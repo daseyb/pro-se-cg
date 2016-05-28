@@ -2,17 +2,17 @@
 #include <engine/events/KeyboardEvent.hpp>
 #include <engine/events/MouseEvent.hpp>
 #include <SDL_syswm.h>
-#include <ACGL/OpenGL/Creator/Texture2DCreator.hh>
-#include <ACGL/OpenGL/Creator/ShaderProgramCreator.hh>
-#include <ACGL/OpenGL/Creator/VertexArrayObjectCreator.hh>
-#include <ACGL/OpenGL/Objects/ElementArrayBuffer.hh>
 
-#include <ACGL/OpenGL/Objects.hh>
+#include <glm/ext.hpp>
 
 #include <engine/events/DrawEvent.hpp>
-
-using namespace ACGL::OpenGL;
-using namespace ACGL::Base;
+#include <glow/objects/VertexArray.hh>
+#include <glow/objects/ArrayBuffer.hh>
+#include <glow/objects/ElementArrayBuffer.hh>
+#include <glow/objects/Program.hh>
+#include <glow/objects/Texture2D.hh>
+#include <glow/data/TextureData.hh>
+#include <glow/data/SurfaceData.hh>
 
 bool UISystem::startup() {
   RESOLVE_DEPENDENCY(m_events);
@@ -102,22 +102,28 @@ bool UISystem::startup() {
   return true;
 }
 
+template <>
+GLenum glTypeOf<ImVec2>::type = GL_FLOAT;
+template <>
+GLenum glTypeOf<ImVec2>::format = GL_RG;
+template <>
+GLint glTypeOf<ImVec2>::size = 2;
+template <>
+internal::glBaseType glTypeOf<ImVec2>::basetype = internal::glBaseType::Float;
+
 void UISystem::setupGLObjects(ImGuiIO& io) {
-  m_imguiVao = std::make_shared<VertexArrayObject>(GL_TRIANGLES);
 
-  m_imguiBuffer = std::make_shared<ArrayBuffer>();
-  m_imguiElements = std::make_shared<ElementArrayBuffer>();
-#define OFFSETOF(TYPE, ELEMENT) ((size_t)&(((TYPE *)0)->ELEMENT))
-  m_imguiBuffer->defineAttributeWithOffset("Position", GL_FLOAT, 2, OFFSETOF(ImDrawVert, pos));
-  m_imguiBuffer->defineAttributeWithOffset("UV", GL_FLOAT, 2, OFFSETOF(ImDrawVert, uv));
-  m_imguiBuffer->defineAttributeWithOffset("Color", GL_UNSIGNED_BYTE, 4, OFFSETOF(ImDrawVert, col), GL_TRUE);
-  m_imguiBuffer->setStride(sizeof(ImDrawVert));
-#undef OFFSETOF
+  m_imguiBuffer = ArrayBuffer::create();
 
-  m_imguiVao->attachAllAttributes(m_imguiBuffer);
-  m_imguiVao->attachElementArrayBuffer(m_imguiElements);
+  m_imguiElements = ElementArrayBuffer::create();
 
-  m_imguiProg = ShaderProgramCreator("ImGui").attributeLocations(m_imguiVao->getAttributeLocations()).create();
+  m_imguiBuffer->defineAttribute(&ImDrawVert::pos, "Position");
+  m_imguiBuffer->defineAttribute(&ImDrawVert::uv, "UV");
+  m_imguiBuffer->defineAttribute(&ImDrawVert::col, "Color");
+
+  m_imguiVao = VertexArray::create({ m_imguiBuffer }, { m_imguiElements }, GL_TRIANGLES);
+
+  m_imguiProg = Program::createFromFile("ImGui");
 
   // Build texture atlas
   unsigned char* pixels;
@@ -125,19 +131,26 @@ void UISystem::setupGLObjects(ImGuiIO& io) {
   // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
   io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-  m_fontTextureData = std::make_shared<TextureData>();
+  
+  auto surface = std::make_shared<SurfaceData>();
   // No need to delete pixels since ClearTexData below does that.
   // Just needed to upload it to a texture
-  m_fontTextureData->setData(pixels, [](GLubyte* data) { _CRT_UNUSED(data); });
-  m_fontTextureData->setFormat(GL_RGBA);
-  m_fontTextureData->setType(GL_UNSIGNED_BYTE);
+  surface->setData({ pixels, pixels + (width * height) * 4 });
+  surface->setFormat(GL_RGBA);
+  surface->setType(GL_UNSIGNED_BYTE);
+  surface->setWidth(width);
+  surface->setHeight(height);
+
+  m_fontTextureData = std::make_shared<TextureData>();
+  m_fontTextureData->addSurface(surface);
+  m_fontTextureData->setPreferredInternalFormat(GL_RGBA);
   m_fontTextureData->setWidth(width);
   m_fontTextureData->setHeight(height);
 
-  m_fontTexture = std::make_shared<Texture2D>(GL_RGBA);
-  m_fontTexture->setMinFilter(GL_LINEAR);
-  m_fontTexture->setMagFilter(GL_LINEAR);
-  m_fontTexture->setImageData(m_fontTextureData);
+  m_fontTexture = Texture2D::createFromData(m_fontTextureData);
+  auto boundTex = m_fontTexture->bind();
+  boundTex.setMinFilter(GL_LINEAR);
+  boundTex.setMagFilter(GL_LINEAR);
   
   // Store our identifier
   io.Fonts->TexID = (void *)(intptr_t)m_fontTexture->getObjectName();
@@ -233,10 +246,10 @@ void UISystem::renderDrawLists(ImDrawData *drawData) {
 
   auto ortho = glm::make_mat4<float>((float*)ortho_projection);
 
-  m_imguiProg->use();
+  auto boundProg = m_imguiProg->use();
 
-  m_imguiProg->setUniform("ProjMtx", ortho);
-  m_imguiProg->setTexture("Texture", m_fontTexture, 0);
+  boundProg.setUniform("ProjMtx", ortho);
+  boundProg.setTexture("Texture", m_fontTexture);
   m_fontTexture->bind();
   m_imguiBuffer->bind();
   m_imguiElements->bind();
@@ -245,8 +258,10 @@ void UISystem::renderDrawLists(ImDrawData *drawData) {
   for (int n = 0; n < drawData->CmdListsCount; n++) {
     const ImDrawList* cmd_list = drawData->CmdLists[n];
     const ImDrawIdx* idx_buffer_offset = 0;
-    m_imguiBuffer->setData((GLsizeiptr)cmd_list->VtxBuffer.size() * sizeof(ImDrawVert), (GLvoid*)&cmd_list->VtxBuffer.front(), GL_STREAM_DRAW);
-    m_imguiElements->setData((GLsizeiptr)cmd_list->IdxBuffer.size() * sizeof(ImDrawIdx), (GLvoid*)&cmd_list->IdxBuffer.front(), GL_STREAM_DRAW);
+    auto boundBuffer = m_imguiBuffer->bind();
+    boundBuffer.setData((GLsizeiptr)cmd_list->VtxBuffer.size() * sizeof(ImDrawVert), (GLvoid*)&cmd_list->VtxBuffer.front(), GL_STREAM_DRAW);
+    auto boundElements = m_imguiElements->bind();
+    boundElements.setIndices((GLsizeiptr)cmd_list->IdxBuffer.size() * sizeof(ImDrawIdx), (uint32_t*)&cmd_list->IdxBuffer.front(), GL_STREAM_DRAW);
 
     for (const ImDrawCmd* pcmd = cmd_list->CmdBuffer.begin(); pcmd != cmd_list->CmdBuffer.end(); pcmd++) {
       if (pcmd->UserCallback) {

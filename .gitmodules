@@ -1,0 +1,3 @@
+[submodule "code/extern/glow"]
+	path = code/extern/glow
+	url = https://www.graphics.rwth-aachen.de:9000/dseyb/glow.git
