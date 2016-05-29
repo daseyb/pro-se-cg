@@ -311,7 +311,7 @@ void RendererSystem::frame(double interp, double totalTime) {
   rmt_BeginOpenGLSample(PostFX);
   rmt_BeginCPUSample(PostFX, 0);
   for (auto& fx : m_effects) {
-    fx->apply(SharedTexture2D((Texture2D*)m_primaryCompositingBuffer->getColorAttachments()[0].texture.get()), m_postfxTargetBuffer);
+    fx->apply(std::dynamic_pointer_cast<Texture2D>(m_primaryCompositingBuffer->getColorAttachments()[0].texture), m_postfxTargetBuffer);
     
     auto temp = m_primaryCompositingBuffer;
     m_primaryCompositingBuffer = m_postfxTargetBuffer;

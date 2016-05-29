@@ -120,7 +120,7 @@ void main() {
   
   float t = 100000.0;
   if(findIntersection(r, t)) {
-    col = vec4(vec3(1.0), 1);
+    col = vec4(vec3(t/30.0), 1);
   }
   
   imageStore(backBuffer, storePos, col);

@@ -17,6 +17,8 @@
 #include <engine/events/KeyboardEvent.hpp>
 #include <engine/core/SimulateEvent.hpp>
 
+#include <engine/graphics/BloomPostFX.hpp>
+
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
@@ -66,6 +68,8 @@ int main(int argc, char *argv[]) {
 
   window.setWindowTitle("Orion");
 
+  renderer.addEffect<BloomPostFX>();
+
   Entity camera = sceneGraph.create();
   auto camTransform = camera.assign<Transform>();
   camera.assign<Camera>(75.0f, 0.01f, 100.0f);
@@ -79,9 +83,10 @@ int main(int argc, char *argv[]) {
   sphere.assign<Transform>();
   sphere.assign<Drawable>(sphereGeom, sphereMat);
 
+  Geometry sphereGeom2 = { 5.0f };
   Entity sphere2 = sceneGraph.create();
   sphere2.assign<Transform>()->position = { 10, 0, 0 };
-  sphere2.assign<Drawable>(sphereGeom, sphereMat);
+  sphere2.assign<Drawable>(sphereGeom2, sphereMat);
 
   bool keyState[SDL_NUM_SCANCODES] = {};
 

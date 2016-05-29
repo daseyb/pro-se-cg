@@ -78,53 +78,69 @@ void BloomPostFX::apply(glow::SharedTexture2D inputBuffer, glow::SharedFramebuff
 
   const static float weights[] = { 1, 0.75, 0.25 };
   const static float scales[] = { 1, 2, 4.0 };
-
-  outputBuffer->bind();
-  glClear(GL_COLOR_BUFFER_BIT);
-  glViewport(0, 0, inputBuffer->getWidth(), inputBuffer->getHeight());
-  auto blitProgramUsed = m_blitProgram->use();
-  blitProgramUsed.setTexture("uSamplerBlur", inputBuffer);
-  blitProgramUsed.setUniform("uBloomFactor", 1.0f);
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  
+  {
+      auto boundFB = outputBuffer->bind();
+      glClear(GL_COLOR_BUFFER_BIT);
+      glViewport(0, 0, inputBuffer->getWidth(), inputBuffer->getHeight());
+      auto blitProgramUsed = m_blitProgram->use();
+      blitProgramUsed.setTexture("uSamplerBlur", inputBuffer);
+      blitProgramUsed.setUniform("uBloomFactor", 1.0f);
+      glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  }
 
   auto blurSrc = m_extractTexture;
 
   for (int pass = 0; pass < (int)m_quality + 1; pass++) {
     glViewport(0, 0, (int)bloomSize.x, (int)bloomSize.y);
-    // Blur horizontally
-    m_blurBufferHorizontal->bind();
-    auto blurProgramUsed = m_blurProgram->use();
-    blurProgramUsed.setUniform("uSampleWeights", m_gaussianWeights.size(), m_gaussianWeights.data());
 
-    blurProgramUsed.setTexture("uSamplerColor", blurSrc);
-    for (size_t i = 0; i < offsets.size(); i++) {
-      offsets[i] = glm::vec2(m_sampleOffsets[i] * scales[pass] / blurSrc->getWidth(), 0);
+    {
+      auto blurProgramUsed = m_blurProgram->use();
+
+      {
+        // Blur horizontally
+        auto boundFB = m_blurBufferHorizontal->bind();
+        blurProgramUsed.setUniform("uSampleWeights", m_gaussianWeights.size(),
+                                   m_gaussianWeights.data());
+
+        blurProgramUsed.setTexture("uSamplerColor", blurSrc);
+        for (size_t i = 0; i < offsets.size(); i++) {
+          offsets[i] = glm::vec2(
+              m_sampleOffsets[i] * scales[pass] / blurSrc->getWidth(), 0);
+        }
+        blurProgramUsed.setUniform("uSampleOffsets", offsets.size(),
+                                   offsets.data());
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+      }
+
+      {
+        // Blur vertically
+        auto boundFB = m_blurBufferVertical->bind();
+        glClear(GL_COLOR_BUFFER_BIT);
+        blurProgramUsed.setTexture("uSamplerColor", m_blurTextureHorizontal);
+
+        for (size_t i = 0; i < offsets.size(); i++) {
+          offsets[i] = glm::vec2(0, m_sampleOffsets[i] * scales[pass] /
+                                        m_blurTextureHorizontal->getHeight());
+        }
+        blurProgramUsed.setUniform("uSampleOffsets", offsets.size(),
+                                   offsets.data());
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+      }
     }
-    blurProgramUsed.setUniform("uSampleOffsets", offsets.size(), offsets.data());
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    // Blur vertically
-    m_blurBufferVertical->bind();
-    glClear(GL_COLOR_BUFFER_BIT);
-    blurProgramUsed.setTexture("uSamplerColor", m_blurTextureHorizontal);
-
-    for (size_t i = 0; i < offsets.size(); i++) {
-      offsets[i] = glm::vec2(0, m_sampleOffsets[i] * scales[pass] / m_blurTextureHorizontal->getHeight());
+    {
+      // Add to output
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+      glViewport(0, 0, inputBuffer->getWidth(), inputBuffer->getHeight());
+      auto boundFB = outputBuffer->bind();
+      auto blitProgramUsed = m_blitProgram->use();
+      blitProgramUsed.setTexture("uSamplerBlur", m_blurTextureVertical);
+      blitProgramUsed.setUniform("uBloomFactor", weights[pass]);
+      glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+      glDisable(GL_BLEND);
     }
-    blurProgramUsed.setUniform("uSampleOffsets", offsets.size(), offsets.data());
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-    // Add to output
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    glViewport(0, 0, inputBuffer->getWidth(), inputBuffer->getHeight());
-    outputBuffer->bind();
-    auto blitProgramUsed = m_blitProgram->use();
-    blitProgramUsed.setTexture("uSamplerBlur", m_blurTextureVertical);
-    blitProgramUsed.setUniform("uBloomFactor", weights[pass]);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glDisable(GL_BLEND);
-
     blurSrc = m_blurTextureVertical;
   }
 }
