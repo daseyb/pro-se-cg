@@ -18,11 +18,8 @@ std::string getDirectory(std::string filename) {
 
 bool SettingsSystem::startup() {
   glow::Program::setShaderReloading(true);
-  
-  auto defaultShaderParser = new glow::DefaultShaderParser();
-  defaultShaderParser->addIncludePath(m_resourcePath + m_shaderPath);
-  glow::SharedShaderParser parser = glow::SharedShaderParser(defaultShaderParser);
-  glow::Shader::setShaderParser(parser);
+
+  glow::DefaultShaderParser::addIncludePath(m_resourcePath + m_shaderPath);
 
   /*Settings::the()->setResourcePath(m_resourcePath);
   Settings::the()->setTexturePath(m_texturePath);

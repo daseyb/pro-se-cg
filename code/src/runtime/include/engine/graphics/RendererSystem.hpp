@@ -85,7 +85,8 @@ private:
 
   SharedProgram m_txaaProg;
 
-  SharedBuffer m_camDataBuffer;
+  SharedShaderStorageBuffer m_camDataBuffer;
+  SharedShaderStorageBuffer m_primitiveBuffer;
 
   uint64_t m_frameIndex = 0;
 

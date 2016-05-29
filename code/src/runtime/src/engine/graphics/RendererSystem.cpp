@@ -3,6 +3,8 @@
 #include <glow/objects/Framebuffer.hh>
 #include <glow/objects/Program.hh>
 #include <glow/objects/VertexArray.hh>
+#include <glow/objects/UniformBuffer.hh>
+#include <glow/objects/ShaderStorageBuffer.hh>
 
 #include <engine/graphics/DrawCall.hpp>
 #include <engine/events/DrawEvent.hpp>
@@ -12,6 +14,8 @@
 
 #include <engine/ui/imgui.h>
 #include <engine/utils/Remotery.h>
+
+#include <glow/std140.hh>
 
 #undef near
 #undef far
@@ -35,15 +39,17 @@ float random(float start, float end) {
 }
 
 struct Primitive {
-    glm::vec3 pos;
-    float r;
+    std140vec3 pos;
+    std140float r;
 };
 
 struct CameraData {
-    glm::vec3 pos;
-
+    std140vec3 pos;
+    std140vec3 forward;
+    std140vec3 right;
+    std140vec3 up;
+    std140float fov;
 };
-
 
 bool RendererSystem::startup() {
   RESOLVE_DEPENDENCY(m_settings);
@@ -59,6 +65,8 @@ bool RendererSystem::startup() {
     fx->startup();
   }
 
+  m_camDataBuffer = ShaderStorageBuffer::create();
+  m_primitiveBuffer = ShaderStorageBuffer::create();
 
   // Set up framebuffer for deferred shading
   auto windowSize = m_window->getSize();
@@ -189,13 +197,37 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   auto camRight = glm::normalize(glm::vec3(camTransform * glm::vec4{ 1, 0, 0, 0 }));
   auto camUp = glm::normalize(glm::vec3(camTransform * glm::vec4{ 0, 1, 0, 0 }));
 
-  auto boundRaycastProgram = m_raycastComputeProgram->use();
-
-  for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
-      
+  CameraData camData{ camPos, camForward, camRight, camUp };
+  {
+      auto camDataBinding = m_camDataBuffer->bind();
+      camDataBinding.setData(camData, GL_DYNAMIC_DRAW);
   }
 
+  std::vector<Primitive> primitives;
+
+  for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
+      auto drawCall = pass.submittedDrawCallsOpaque[i];
+      primitives.push_back({ glm::vec3(0), drawCall.geometry.radius });
+  }
+
+
+  auto boundPrimitiveBuffer = m_primitiveBuffer->bind();
+
+  boundPrimitiveBuffer.setData(primitives, GL_DYNAMIC_DRAW);
+
+
+  m_raycastComputeProgram->setShaderStorageBuffer("primitives", m_primitiveBuffer);
+  m_raycastComputeProgram->setShaderStorageBuffer("cam", m_camDataBuffer);
+
+  auto boundRaycastProgram = m_raycastComputeProgram->use();
+
+  auto compositingSize = m_primaryCompositingBuffer->getDim();
+
+  boundRaycastProgram.setTexture("backBuffer", m_primaryCompositingBuffer->getColorAttachments()[0].texture);
+  boundRaycastProgram.compute(compositingSize.x / 8 + 1, compositingSize.y / 8 + 1);
+
   // TXAA
+  /*
   glDisable(GL_BLEND);
 
   // attribute-less rendering:
@@ -227,7 +259,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // create 2 triangles (defined in shader) with no attributes
 
   if (!pass.renderToTextureOnly) {
-    auto compositingSize = m_normalMotionBuffer->getDim();
+    auto compositingSize = m_primaryCompositingBuffer->getDim();
     glViewport(0, 0, compositingSize.x, compositingSize.y);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
@@ -244,7 +276,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   // Swap TAA buffers
   auto temp = pass.compositingTarget;
   pass.compositingTarget = pass.txaaHistory;
-  pass.txaaHistory = temp;
+  pass.txaaHistory = temp;*/
 
   trans->lastRenderTransform = static_cast<glm::dmat4>(camTransform);
 }

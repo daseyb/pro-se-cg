@@ -9,7 +9,7 @@ struct Primitive {
 
 layout(std140, binding = 1) buffer PrimitiveBuffer { 
 	Primitive primitives[]; 
-} data;
+} primitives;
 
 layout(std140, binding = 2) buffer CameraBuffer {
   vec3 pos;
@@ -49,5 +49,5 @@ void main() {
   if(storePos.x >= imgSize.x || storePos.y >= imgSize.y) return;
   
   Ray r = generateRay(storePos.x, storePos.y, imgSize.x, imgSize.y);
-  
+  imageStore(backBuffer, storePos, vec4(r.dir.xy, 0, 1));
  }

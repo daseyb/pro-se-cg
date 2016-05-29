@@ -9,7 +9,7 @@ using namespace std;
 
 void WindowSystem::setSDLHintsForOpenGLVersion(unsigned int _version) {
 #ifdef __APPLE__
-#if (ACGL_OPENGL_VERSION >= 30)
+#if (GLOW_OPENGL_VERSION >= 30)
   // request OpenGL 3.2, will return a 4.1 context on Mavericks
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
@@ -20,7 +20,7 @@ void WindowSystem::setSDLHintsForOpenGLVersion(unsigned int _version) {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, _version / 10);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, _version % 10);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-#ifdef ACGL_OPENGL_PROFILE_CORE
+#ifdef GLOW_OPENGL_PROFILE_CORE
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,
                       SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);

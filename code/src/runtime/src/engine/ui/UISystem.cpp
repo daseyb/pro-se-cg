@@ -117,9 +117,12 @@ void UISystem::setupGLObjects(ImGuiIO& io) {
 
   m_imguiElements = ElementArrayBuffer::create();
 
-  m_imguiBuffer->defineAttribute(&ImDrawVert::pos, "Position");
-  m_imguiBuffer->defineAttribute(&ImDrawVert::uv, "UV");
-  m_imguiBuffer->defineAttribute(&ImDrawVert::col, "Color");
+#define OFFSETOF(TYPE, ELEMENT) ((size_t)&(((TYPE *)0)->ELEMENT))
+  m_imguiBuffer->defineAttributeWithOffset("Position", GL_FLOAT, 2, OFFSETOF(ImDrawVert, pos));
+  m_imguiBuffer->defineAttributeWithOffset("UV", GL_FLOAT, 2, OFFSETOF(ImDrawVert, uv));
+  m_imguiBuffer->defineAttributeWithOffset("Color", GL_UNSIGNED_BYTE, 4, OFFSETOF(ImDrawVert, col), glow::AttributeMode::NormalizedInteger);
+  m_imguiBuffer->setStride(sizeof(ImDrawVert));
+#undef OFFSETOF
 
   m_imguiVao = VertexArray::create({ m_imguiBuffer }, { m_imguiElements }, GL_TRIANGLES);
 
@@ -135,7 +138,7 @@ void UISystem::setupGLObjects(ImGuiIO& io) {
   auto surface = std::make_shared<SurfaceData>();
   // No need to delete pixels since ClearTexData below does that.
   // Just needed to upload it to a texture
-  surface->setData({ pixels, pixels + (width * height) * 4 });
+  surface->setData({ pixels, pixels + width * height * 4 });
   surface->setFormat(GL_RGBA);
   surface->setType(GL_UNSIGNED_BYTE);
   surface->setWidth(width);
@@ -250,18 +253,20 @@ void UISystem::renderDrawLists(ImDrawData *drawData) {
 
   boundProg.setUniform("ProjMtx", ortho);
   boundProg.setTexture("Texture", m_fontTexture);
-  m_fontTexture->bind();
-  m_imguiBuffer->bind();
-  m_imguiElements->bind();
-  m_imguiVao->bind();
 
   for (int n = 0; n < drawData->CmdListsCount; n++) {
     const ImDrawList* cmd_list = drawData->CmdLists[n];
     const ImDrawIdx* idx_buffer_offset = 0;
-    auto boundBuffer = m_imguiBuffer->bind();
-    boundBuffer.setData((GLsizeiptr)cmd_list->VtxBuffer.size() * sizeof(ImDrawVert), (GLvoid*)&cmd_list->VtxBuffer.front(), GL_STREAM_DRAW);
-    auto boundElements = m_imguiElements->bind();
-    boundElements.setIndices((GLsizeiptr)cmd_list->IdxBuffer.size() * sizeof(ImDrawIdx), (uint32_t*)&cmd_list->IdxBuffer.front(), GL_STREAM_DRAW);
+
+    {
+        auto boundBuffer = m_imguiBuffer->bind();
+        auto boundElements = m_imguiElements->bind();
+
+        boundBuffer.setData((GLsizeiptr)cmd_list->VtxBuffer.size() * sizeof(ImDrawVert), (GLvoid*)&cmd_list->VtxBuffer.front(), GL_STREAM_DRAW);
+        boundElements.setIndices(cmd_list->IdxBuffer.size(), (ImDrawIdx*)&cmd_list->IdxBuffer.front(), GL_STREAM_DRAW);
+    }
+
+    auto boundVAO = m_imguiVao->bind();
 
     for (const ImDrawCmd* pcmd = cmd_list->CmdBuffer.begin(); pcmd != cmd_list->CmdBuffer.end(); pcmd++) {
       if (pcmd->UserCallback) {
@@ -269,7 +274,9 @@ void UISystem::renderDrawLists(ImDrawData *drawData) {
       } else {
         glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)pcmd->TextureId);
         glScissor((int)pcmd->ClipRect.x, (int)(fb_height - pcmd->ClipRect.w), (int)(pcmd->ClipRect.z - pcmd->ClipRect.x), (int)(pcmd->ClipRect.w - pcmd->ClipRect.y));
-        glDrawElements(GL_TRIANGLES, (GLsizei)pcmd->ElemCount, sizeof(ImDrawIdx) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, idx_buffer_offset);
+
+        boundVAO.drawRange((GLsizei)idx_buffer_offset, (GLsizei)idx_buffer_offset + pcmd->ElemCount);
+        //glDrawElements(GL_TRIANGLES, (GLsizei)pcmd->ElemCount, sizeof(ImDrawIdx) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, idx_buffer_offset);
       }
       idx_buffer_offset += pcmd->ElemCount;
     }
