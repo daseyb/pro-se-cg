@@ -223,18 +223,19 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
   auto compositingSize = m_primaryCompositingBuffer->getDim();
 
-  boundRaycastProgram.setTexture("backBuffer", m_primaryCompositingBuffer->getColorAttachments()[0].texture);
+  boundRaycastProgram.setImage(0, pass.compositingTarget->getColorAttachments()[0].texture, GL_WRITE_ONLY);
   boundRaycastProgram.compute(compositingSize.x / 8 + 1, compositingSize.y / 8 + 1);
 
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
   // TXAA
-  /*
+  
   glDisable(GL_BLEND);
 
   // attribute-less rendering:
-  VertexArray vao;
-  auto boundVAO = vao.bind(); // 'empty' VAO -> no attributes are defined
+  auto vao = VertexArray::create(GL_TRIANGLE_STRIP);
+  auto boundVAO = vao->bind(); // 'empty' VAO -> no attributes are defined
 
-  pass.compositingTarget->bind();
+  /* pass.compositingTarget->bind();
   int width = pass.compositingTarget->getDim().x;
   int height = pass.compositingTarget->getDim().y;
   glViewport(0, 0, width, height);
@@ -256,7 +257,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   auto motionSize = glm::vec2(m_normalMotionBuffer->getDim());
   boundTxaaProg.setUniform("uOneOverMotionSize", glm::vec2(1.0) / motionSize);
 
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // create 2 triangles (defined in shader) with no attributes
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // create 2 triangles (defined in shader) with no attributes*/
 
   if (!pass.renderToTextureOnly) {
     auto compositingSize = m_primaryCompositingBuffer->getDim();
@@ -264,19 +265,19 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
 
-    m_primaryCompositingBuffer->bind();
+    auto boundFrameBuffer = m_primaryCompositingBuffer->bind();
     auto boundPassBlitProgram = m_passBlitProgram->use();
     boundPassBlitProgram.setTexture(
         "uSamplerColor",
         pass.compositingTarget->getColorAttachments()[0].texture);
 
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // create 2 triangles (defined in shader) with no attributes
+    boundVAO.drawRange(0, 4);
   }
 
   // Swap TAA buffers
   auto temp = pass.compositingTarget;
   pass.compositingTarget = pass.txaaHistory;
-  pass.txaaHistory = temp;*/
+  pass.txaaHistory = temp;
 
   trans->lastRenderTransform = static_cast<glm::dmat4>(camTransform);
 }
@@ -311,8 +312,8 @@ void RendererSystem::frame(double interp, double totalTime) {
   m_totalLightCount = 0;
 
   // attribute-less rendering:
-  VertexArray vao;
-  auto boundVAO = vao.bind(); // 'empty' VAO -> no attributes are defined
+  auto vao = VertexArray::create(GL_TRIANGLE_STRIP);
+  auto boundVAO = vao->bind(); // 'empty' VAO -> no attributes are defined
 
   rmt_BeginOpenGLSample(PostFX);
   rmt_BeginCPUSample(PostFX, 0);
@@ -331,13 +332,15 @@ void RendererSystem::frame(double interp, double totalTime) {
   glViewport(0, 0, m_window->getSize().x, m_window->getSize().y);
   // Blit to backbuffer with tonemapping
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glDisable(GL_DEPTH_TEST);
 
   auto boundBlitProgram = m_blitProgram->use();
   boundBlitProgram.setTexture(
       "uSamplerColor",
       m_primaryCompositingBuffer->getColorAttachments()[0].texture);
 
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // create 2 triangles (defined in shader) with no attributes
+  boundVAO.drawRange(0, 4);
+
   rmt_EndCPUSample();
   rmt_EndOpenGLSample();
 

@@ -201,7 +201,8 @@ public:
     boundTex.setMinFilter(GL_LINEAR);
     boundTex.setMagFilter(GL_LINEAR);
     boundTex.setWrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
-    
+    boundTex.makeStorageImmutable(tex->getWidth(), tex->getHeight(), internalFormat);
+
     m_screenSpaceTextures.push_back({size, tex}); // RGBA per default
     return tex;
   }

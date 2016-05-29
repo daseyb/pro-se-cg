@@ -62,5 +62,5 @@ void main()
   vec3 retColor = pow(color, vec3(1.0/2.2));
   retColor += vec3(rand(gl_FragCoord.xy) * 1.0/255 - 0.5/255);
         
-  oColor = vec4( retColor, 1);
+  oColor = vec4(retColor, 1);
 }

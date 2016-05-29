@@ -1,6 +1,6 @@
 #version 430
 
-layout(binding = 0, rgba8) writeonly uniform image2D backBuffer;
+layout(binding = 0, rgba32f) writeonly uniform image2D backBuffer;
 
 struct Primitive {
   vec3 pos;
@@ -26,7 +26,7 @@ struct Ray {
 
 Ray generateRay(int x, int y, int w, int h) {
   float fovx = cam.fov;             // Horizontal FOV
-  float fovy = fovx * h / w; // Vertical FOV
+  float fovy = fovx * h / w;       // Vertical FOV
 
   float halfWidth =  float(h) / 2.0f;
   float halfHeight = float(w) / 2.0f;
@@ -49,5 +49,5 @@ void main() {
   if(storePos.x >= imgSize.x || storePos.y >= imgSize.y) return;
   
   Ray r = generateRay(storePos.x, storePos.y, imgSize.x, imgSize.y);
-  imageStore(backBuffer, storePos, vec4(r.dir.xy, 0, 1));
+  imageStore(backBuffer, storePos, vec4(cam.fov, 1, 1, 1));
  }

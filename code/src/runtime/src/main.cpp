@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
 
   window.setWindowTitle("Orion");
 
-  /*Entity camera = sceneGraph.create();
+  Entity camera = sceneGraph.create();
   auto camTransform = camera.assign<Transform>();
   camera.assign<Camera>(90.0f, 0.01f, 100.0f);
   renderer.addRenderPass(camera, "Main"_sh);
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
   Material sphereMat = { {1.0f, 1.0f, 1.0f, 1.0f}, { 0.0f, 0.0f, 0.0f, 0.0f }, RenderQueue::OPAQUE };
   Entity sphere = sceneGraph.create();
   sphere.assign<Transform>();
-  sphere.assign<Drawable>( sphereGeom, sphereMat );*/
+  sphere.assign<Drawable>( sphereGeom, sphereMat );
 
   // Kickoff the gameloop
   // This is what actually runs the game
