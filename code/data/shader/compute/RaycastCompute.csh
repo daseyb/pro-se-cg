@@ -10,6 +10,7 @@ struct Primitive {
   float r;
 };
 
+uniform vec2 pixelOffset;
 uniform int primitiveCount;
 
 layout(std140, binding = 1) buffer PrimitiveBuffer { 
@@ -29,15 +30,15 @@ struct Ray {
   vec3 dir;
 }; 
 
-Ray generateRay(int x, int y, int w, int h) {
-  float fovx = cam.fov * DEG_TO_RAD;                     // Horizontal FOV
-  float fovy = fovx * float(h) / float(w);  // Vertical FOV
+Ray generateRay(float x, float y, float w, float h) {
+  float fovx = cam.fov * DEG_TO_RAD;        // Horizontal FOV
+  float fovy = fovx * h / w;  // Vertical FOV
 
-  float halfWidth =  float(w) / 2.0f;
-  float halfHeight = float(h) / 2.0f;
+  float halfWidth =  w / 2.0f;
+  float halfHeight = h / 2.0f;
 
-  float alpha = tan(fovx / 2.0f) * ((float(x) - halfWidth) / halfWidth);
-  float beta = tan(fovy / 2.0f) * ((halfHeight - float(y)) / halfHeight);
+  float alpha = tan(fovx / 2.0f) * ((x - halfWidth) / halfWidth);
+  float beta = tan(fovy / 2.0f) * ((halfHeight - y) / halfHeight);
   
   Ray result;
   result.pos = cam.pos;
@@ -45,9 +46,14 @@ Ray generateRay(int x, int y, int w, int h) {
   return result;
 }
 
+struct HitInfo {
+  vec3 pos;
+  vec3 norm;
+  float t;
+};
 
-bool intersectPrimitive(in Ray ray, in Primitive sphere, out float t) {
-    t = 100000.0;
+
+bool intersectPrimitive(in Ray ray, in Primitive sphere, out HitInfo hit) {
     vec3 oc = ray.pos - sphere.pos;
     float b = 2.0 * dot(ray.dir, oc);
     float c = dot(oc, oc) - sphere.r*sphere.r;
@@ -82,30 +88,56 @@ bool intersectPrimitive(in Ray ray, in Primitive sphere, out float t) {
     
     // if t0 is less than zero, the intersection point is at t1
     if (t0 < 0.0) {
-        t = t1;
+        hit.t = t1;
     } else {
-        t = t0; 
+        hit.t = t0; 
     }
+    
+    hit.pos = ray.pos + hit.t * ray.dir;
+    hit.norm = normalize(hit.pos - sphere.pos);
     
     return true;
 }
 
 
-bool findIntersection(in Ray r, out float t) {
+bool findIntersection(in Ray r, out HitInfo hit) {
   bool didIntersect = false;
-  t = 100000.0;
+  hit.t = 10000.0;
   for(int i = 0; i < primitiveCount; i++) {
     Primitive p = primitives[i];
-    float currT = 100000.0;
+    
+    HitInfo currHit;
 
-    if(intersectPrimitive(r, p, currT)) {
+    if(intersectPrimitive(r, p, currHit)) {
       didIntersect = true;
-      t = min(currT, t);
+      
+      if(currHit.t < hit.t) {
+        hit = currHit;
+      }
     }
   }
   return didIntersect;
 }
 
+struct Payload {
+  vec4 col;  
+};
+
+void trace(in Ray r, inout Payload pl) {
+  
+  HitInfo hit;
+  if(findIntersection(r, hit)) {
+    vec3 lightDir = normalize(vec3(-1));
+    vec3 surfaceNorm = hit.norm;
+    r.pos = hit.pos + hit.norm * 0.001;
+    r.dir = lightDir;
+    pl.col = vec4(0.01, 0.01, 0.01, 1);
+    
+    if(!findIntersection(r, hit)) {
+      pl.col += vec4(vec3(clamp(dot(lightDir, surfaceNorm), 0, 1)), 1);
+    }
+  }
+}
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main() {
@@ -114,14 +146,11 @@ void main() {
   
   if(storePos.x >= imgSize.x || storePos.y >= imgSize.y) return;
   
-  Ray r = generateRay(storePos.x, storePos.y, imgSize.x, imgSize.y);
+  Ray r = generateRay(storePos.x + pixelOffset.x, storePos.y + pixelOffset.y, imgSize.x, imgSize.y);
   
-  vec4 col = vec4(0, 0, 0, 1);
-  
-  float t = 100000.0;
-  if(findIntersection(r, t)) {
-    col = vec4(vec3(t/30.0), 1);
-  }
-  
-  imageStore(backBuffer, storePos, col);
+  Payload pl;
+  pl.col = vec4(0, 0, 0, 1);
+  trace(r, pl);
+
+  imageStore(backBuffer, storePos, pl.col);
  }

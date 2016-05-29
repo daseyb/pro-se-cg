@@ -177,9 +177,6 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   };
 
   auto currentOffset = OFFSETS[m_frameIndex % 8] * 2 - 1.0f;
-
-  currentOffset.x /= gBufferRes.x;
-  currentOffset.y /= gBufferRes.y;
   currentOffset.z = 0;
 
   auto aaProj = glm::perspectiveFov<float>(glm::radians(cam->fov), (float)windowSize.x, (float)windowSize.y, cam->near, cam->far);
@@ -213,8 +210,9 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
   auto boundRaycastProgram = m_raycastComputeProgram->use();
 
+  boundRaycastProgram.setUniform("pixelOffset", glm::vec2(currentOffset));
   boundRaycastProgram.setUniform("primitiveCount", (int)primitives.size());
-  boundRaycastProgram.setImage(0, pass.compositingTarget->getColorAttachments()[0].texture, GL_WRITE_ONLY);
+  boundRaycastProgram.setImage(0, m_secondaryCompositingBuffer->getColorAttachments()[0].texture, GL_WRITE_ONLY);
 
   auto compositingSize = m_primaryCompositingBuffer->getDim();
   boundRaycastProgram.compute(compositingSize.x / 8 + 1, compositingSize.y / 8 + 1);
@@ -228,29 +226,31 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   auto vao = VertexArray::create(GL_TRIANGLE_STRIP);
   auto boundVAO = vao->bind(); // 'empty' VAO -> no attributes are defined
 
-  /* pass.compositingTarget->bind();
-  int width = pass.compositingTarget->getDim().x;
-  int height = pass.compositingTarget->getDim().y;
-  glViewport(0, 0, width, height);
+  {
+      auto boundFB = pass.compositingTarget->bind();
+      int width = pass.compositingTarget->getDim().x;
+      int height = pass.compositingTarget->getDim().y;
+      glViewport(0, 0, width, height);
 
-  auto boundTxaaProg = m_txaaProg->use();
-  boundTxaaProg.setTexture(
-      "uSamplerColor",
-      m_secondaryCompositingBuffer->getColorAttachments()[0].texture);
+      auto boundTxaaProg = m_txaaProg->use();
+      boundTxaaProg.setTexture(
+          "uSamplerColor",
+          m_secondaryCompositingBuffer->getColorAttachments()[0].texture);
 
-  boundTxaaProg.setTexture("uSamplerHistory",
-                           pass.txaaHistory->getColorAttachments()[0].texture);
+      boundTxaaProg.setTexture("uSamplerHistory",
+          pass.txaaHistory->getColorAttachments()[0].texture);
 
-  boundTxaaProg.setTexture("uSamplerNormalMotion", m_normalMotionBuffer);
-  boundTxaaProg.setTexture("uSamplerDepth", m_depthBuffer);
+      boundTxaaProg.setTexture("uSamplerNormalMotion", m_normalMotionBuffer);
+      boundTxaaProg.setTexture("uSamplerDepth", m_depthBuffer);
 
-  auto colorSize = glm::vec2(m_secondaryCompositingBuffer->getDim());
-  boundTxaaProg.setUniform("uOneOverColorSize", glm::vec2(1.0) / colorSize);
+      auto colorSize = glm::vec2(m_secondaryCompositingBuffer->getDim());
+      boundTxaaProg.setUniform("uOneOverColorSize", glm::vec2(1.0) / colorSize);
 
-  auto motionSize = glm::vec2(m_normalMotionBuffer->getDim());
-  boundTxaaProg.setUniform("uOneOverMotionSize", glm::vec2(1.0) / motionSize);
+      auto motionSize = glm::vec2(m_normalMotionBuffer->getDim());
+      boundTxaaProg.setUniform("uOneOverMotionSize", glm::vec2(1.0) / motionSize);
 
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // create 2 triangles (defined in shader) with no attributes*/
+      boundVAO.drawRange(0, 4);
+  }
 
   if (!pass.renderToTextureOnly) {
     auto compositingSize = m_primaryCompositingBuffer->getDim();
@@ -280,13 +280,6 @@ void RendererSystem::frame(double interp, double totalTime) {
   rmt_BeginCPUSample(RenderFrame, 0);
 
   m_frameIndex++;
-
-  rmt_BeginOpenGLSample(ClearBuffer);
-  rmt_BeginCPUSample(ClearBuffer, 0);
-  m_primaryCompositingBuffer->bind();
-  glClear(GL_COLOR_BUFFER_BIT);
-  rmt_EndCPUSample();
-  rmt_EndOpenGLSample();
 
   rmt_BeginOpenGLSample(RenderPasses);
   rmt_BeginCPUSample(RenderPasses, 0);

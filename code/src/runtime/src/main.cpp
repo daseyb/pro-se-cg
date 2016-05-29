@@ -68,8 +68,6 @@ int main(int argc, char *argv[]) {
 
   window.setWindowTitle("Orion");
 
-  renderer.addEffect<BloomPostFX>();
-
   Entity camera = sceneGraph.create();
   auto camTransform = camera.assign<Transform>();
   camera.assign<Camera>(75.0f, 0.01f, 100.0f);
@@ -83,10 +81,15 @@ int main(int argc, char *argv[]) {
   sphere.assign<Transform>();
   sphere.assign<Drawable>(sphereGeom, sphereMat);
 
-  Geometry sphereGeom2 = { 5.0f };
+  Geometry sphereGeom2 = { 500.0f };
   Entity sphere2 = sceneGraph.create();
-  sphere2.assign<Transform>()->position = { 10, 0, 0 };
+  sphere2.assign<Transform>()->position = { 0, 505, 0 };
   sphere2.assign<Drawable>(sphereGeom2, sphereMat);
+
+  Entity sphere3 = sceneGraph.create();
+  auto sphere3Transform = sphere3.assign<Transform>();
+  sphere3Transform->position = { -10, 0, 0 };
+  sphere3.assign<Drawable>(sphereGeom, sphereMat);
 
   bool keyState[SDL_NUM_SCANCODES] = {};
 
@@ -152,10 +155,15 @@ int main(int argc, char *argv[]) {
       if (keyState[SDL_SCANCODE_A]) moveDir -= glm::vec3(1, 0, 0);
       if (keyState[SDL_SCANCODE_D]) moveDir += glm::vec3(1, 0, 0);
 
+      float speed = 10.0;
+      if (keyState[SDL_SCANCODE_LSHIFT]) speed = 100.0f;
+
       if (moveDir.x != 0 || moveDir.y != 0 || moveDir.z != 0) {
           moveDir = rotate(glm::normalize(moveDir), camTransform->rotation);
-          camTransform->position += moveDir * e.dt * 10.0;
+          camTransform->position += moveDir * e.dt * speed;
       }
+
+      sphere3Transform->position = glm::vec3(sinf(e.totalTime), 0.0f, cosf(e.totalTime)) * 5.0f;
   });
 
   // Kickoff the gameloop
