@@ -23,10 +23,7 @@
 
 using namespace glow;
 
-glm::mat4 interpolate(TransformData a, TransformData b, double t,
-                      glm::vec3 camPos) {
-  a.pos = a.pos - camPos;
-  b.pos = b.pos - camPos;
+glm::mat4 interpolate(TransformData a, TransformData b, double t) {
   glm::vec3 pos = a.pos + (b.pos - a.pos) * t;
   glm::quat rot = glm::slerp(a.rot, b.rot, static_cast<float>(t));
   glm::vec3 s = a.scale + (b.scale - a.scale) * t;
@@ -39,16 +36,16 @@ float random(float start, float end) {
 }
 
 struct Primitive {
-    std140vec3 pos;
-    std140float r;
+    glm::vec3 pos;
+    float r;
 };
 
 struct CameraData {
-    std140vec3 pos;
-    std140vec3 forward;
-    std140vec3 right;
-    std140vec3 up;
-    std140float fov;
+    glm::vec3 pos;
+    float fov;
+    glm::vec4 forward;
+    glm::vec4 right;
+    glm::vec4 up;
 };
 
 bool RendererSystem::startup() {
@@ -97,6 +94,9 @@ bool RendererSystem::startup() {
   m_passBlitProgram = Program::createFromFile("PassBlit");
   m_txaaProg = Program::createFromFile("TXAA");
   m_raycastComputeProgram = Program::createFromFile("compute/RaycastCompute.csh");
+
+  m_raycastComputeProgram->setShaderStorageBuffer("CameraBuffer", m_camDataBuffer);
+  m_raycastComputeProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
 
   m_events->subscribe<ResizeWindowEvent>([this](const ResizeWindowEvent &e) {
     glViewport(0, 0, (int)e.newSize.x, (int)e.newSize.y);
@@ -159,7 +159,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   auto origPos = trans->lastGlobalTransform.pos + (trans->thisGlobalTransform.pos - trans->lastGlobalTransform.pos)*interp;
 
   // Prepare camera coords
-  auto camTransform = interpolate(trans->lastGlobalTransform, trans->thisGlobalTransform, interp, trans->thisGlobalTransform.pos);
+  auto camTransform = interpolate(trans->lastGlobalTransform, trans->thisGlobalTransform, interp);
   auto windowSize = m_window->getSize();
 
   // Do Camera jitter for TXAA
@@ -197,33 +197,26 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   auto camRight = glm::normalize(glm::vec3(camTransform * glm::vec4{ 1, 0, 0, 0 }));
   auto camUp = glm::normalize(glm::vec3(camTransform * glm::vec4{ 0, 1, 0, 0 }));
 
-  CameraData camData{ camPos, camForward, camRight, camUp };
-  {
-      auto camDataBinding = m_camDataBuffer->bind();
-      camDataBinding.setData(camData, GL_DYNAMIC_DRAW);
-  }
+  CameraData camData { camPos, cam->fov, glm::vec4(camForward, 0.0f), glm::vec4(camRight, 0.0f), glm::vec4(camUp, 0.0f) };
+  auto camDataBinding = m_camDataBuffer->bind();
+  camDataBinding.setData(camData, GL_DYNAMIC_DRAW);
 
   std::vector<Primitive> primitives;
 
   for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
       auto drawCall = pass.submittedDrawCallsOpaque[i];
-      primitives.push_back({ glm::vec3(0), drawCall.geometry.radius });
+      primitives.push_back({ glm::vec3(drawCall.thisRenderTransform * glm::vec4(0, 0, 0, 1)), drawCall.geometry.radius });
   }
 
-
   auto boundPrimitiveBuffer = m_primitiveBuffer->bind();
-
   boundPrimitiveBuffer.setData(primitives, GL_DYNAMIC_DRAW);
-
-
-  m_raycastComputeProgram->setShaderStorageBuffer("primitives", m_primitiveBuffer);
-  m_raycastComputeProgram->setShaderStorageBuffer("cam", m_camDataBuffer);
 
   auto boundRaycastProgram = m_raycastComputeProgram->use();
 
-  auto compositingSize = m_primaryCompositingBuffer->getDim();
-
+  boundRaycastProgram.setUniform("primitiveCount", (int)primitives.size());
   boundRaycastProgram.setImage(0, pass.compositingTarget->getColorAttachments()[0].texture, GL_WRITE_ONLY);
+
+  auto compositingSize = m_primaryCompositingBuffer->getDim();
   boundRaycastProgram.compute(compositingSize.x / 8 + 1, compositingSize.y / 8 + 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);

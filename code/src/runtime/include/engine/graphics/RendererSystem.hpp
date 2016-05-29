@@ -210,5 +210,4 @@ public:
   void frame(double interp, double totalTime);
 };
 
-glm::mat4 interpolate(TransformData a, TransformData b, double t,
-                      glm::vec3 camPos);
+glm::mat4 interpolate(TransformData a, TransformData b, double t);

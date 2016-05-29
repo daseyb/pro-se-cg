@@ -89,7 +89,7 @@ void SceneGraphSystem::prepareDraw(double interp) {
     e.unpack<Drawable, Transform>(drawable, transform);
     if (drawable->renderPassIndex >= cams.size()) continue;
 
-    auto thisRenderTransform = interpolate(transform->lastGlobalTransform, transform->thisGlobalTransform, interp, cams[drawable->renderPassIndex]);
+    auto thisRenderTransform = interpolate(transform->lastGlobalTransform, transform->thisGlobalTransform, interp);
     if (drawable->visible) {
 	    m_renderer->submit({ drawable->material, drawable->geometry, transform->lastRenderTransform, thisRenderTransform }, drawable->material.queue, drawable->renderPassIndex);
     }
