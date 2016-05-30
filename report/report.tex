@@ -24,7 +24,7 @@
 % Abstract
 
 \begin{abstract}%
-Ray Tracing is next to rasterization the most widely used technique to generate discrete 2D images from continuous 3D scenes. Until recently ray tracing was too resource intensive to produce images in realtime, but advances in hardware capabilities, most notably the introduction of GPGPU (General Purpose Graphics Processing Units), and algorithms made near-realtime ray tracing feasible. In this report we will present some of the techniques which are used to achieve this.
+Ray Tracing is next to rasterization the most widely used technique to generate discrete 2D images from continuous 3D scenes. Until recently ray tracing was too resource intensive to produce images in realtime, but advances in algorithms and hardware capabilities, most notably the introduction of GPGPU (General Purpose Graphics Processing Units), made near-realtime ray tracing feasible. In this report we will present some of the techniques which are used to achieve this.
 \end{abstract}
 
 \keywords{Ray Tracing, Acceleration Structures, Realtime Rendering, GPGPU}
@@ -34,13 +34,35 @@ Ray Tracing is next to rasterization the most widely used technique to generate 
 % Introduction
 
 \section{Introduction}
+The technique of tracing rays through a scene consisting of primitives and media has been known to the computational physics community for a long time. There it is mostly used to simulate the propagation of waves (e.g. shock waves of an earthquake) through a heterogeneous medium (e.g. the interior of the earth). \cite{GJI:GJI93}
 
-Talk about ray tracing from Whitted to Hyperion. 
+It was first described in relation to computer graphics by Arthur Appel in 1968. At the time the common method to visualize three dimensional scenes was to synthesize two dimensional line and point drawings. Appel recognized the importance of shading and shadow casting in conveying shape and spatial relations. In his paper "Some techniques for shading machine renderings of solids" he proposes a method to realize this shading by casting rays originating from the viewers' position through each pixel on the viewing plane and calculating the first point of intersection with the scene. To determine shading he casts a second ray from this intersection point to the light source. Noteworthy is that he recognized Lambert's cosine law as the basis of a physically correct model for diffuse shading of surfaces lit by a point light.
+\begin{equation}
+I = S (Cosine L)/D^{2}
+\end{equation}
+Where $I$ is the final illumination intensity, $S$ the intensity of the light source, $L$ the angle between the surface normal and the direction to the light source and $D$ the distance to the light source.
+Appel's technique was very compute intensive for its time, but already illustrated the power of ray tracing to generate realistic images using a relatively simple algorithm. \cite{Appel68}
+
+\begin{figure}[htb!]
+  \begin{centering}
+    \includegraphics[width=10cm]{figures/Appel_Shading.png}\par
+  \end{centering}
+  \caption{Left: Unshaded Line/Point Drawing, Right: Drawing augmented with the technique introduced in \cite{Appel68}}
+  \label{fig:appel_tracing}
+\end{figure}
+
+The next major contribution to ray tracing came from Turner Whitted of Bell Laboratories in 1980. In his landmark paper "An Improved Illumination Model for Shaded Display" \cite{Whitted:1980} he describes the algorithm that would become known as Recursive, or Whitted, Ray Tracing.
+
+%Finish Whitted, talk about recursiveness. Note his own comment about missing diffuse reflection
+%Kajiya, rendering equation
+%Talk about Veach and path tracing
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Second Section
 \section{Overview over the path tracing algorithm}
 A short overview of the base algorithm we are going to use for the rest of the paper. Cite \cite{veach1997robust} all the way.
+
+% Path integral formulation, monte carlo methods
 
 \section{Spacial partitioning and acceleration structures}
 Going logarithmic!
@@ -54,9 +76,12 @@ Do I really want to go here? \cite{Kettunen2015sg} I'll implement everything els
 \subsection{Temporal Supersampling}
 I need to find a real paper describing this, so far only GDC talks. I think this is going to make a huge difference in the quality I can achieve.
 
+% Reference back to monte carlo, main issue of path tracing is variance expressed as noise, we need more samples. Temporal Supersampling provides these.
+
 \section{Adapting the described algorithms to the GPU}
 \subsection{Accessing the GPU outside of the rasterization pipeline}
-CUDA or compute shaders, still need to decide.
+Compute shaders
+% Easier integration with OpenGL (needed for TXAA)
 \subsection{Hierarchical data structures on the GPU}
 Use this: \cite{Karras:2012:MPC:2383795.2383801}
 
