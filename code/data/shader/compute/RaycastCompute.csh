@@ -28,7 +28,7 @@ layout(std140, binding = 2) buffer CameraBuffer {
 struct Ray {
   vec3 pos;
   vec3 dir;
-}; 
+};
 
 Ray generateRay(float x, float y, float w, float h) {
   float fovx = cam.fov * DEG_TO_RAD;        // Horizontal FOV
