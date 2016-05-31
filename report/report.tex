@@ -1,6 +1,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Document settings
 \documentclass{ACGSeminar}
+\usepackage{tikz}
+\usepackage{svg}
+
+\tikzset{
+  root/.style     = {draw=none},
+  leaf/.style     = {draw=none},
+  dummy/.style    = {circle,draw},
+  text-node/.style    = {rectangle, rounded corners, align=center,draw},
+}
 
 \bibliography{references}
 
@@ -51,7 +60,39 @@ Appel's technique was very compute intensive for its time, but already illustrat
   \label{fig:appel_tracing}
 \end{figure}
 
-The next major contribution to ray tracing came from Turner Whitted of Bell Laboratories in 1980. In his landmark paper "An Improved Illumination Model for Shaded Display" \cite{Whitted:1980} he describes the algorithm that would become known as Recursive, or Whitted, Ray Tracing.
+The next major contribution to ray tracing came from Turner Whitted of Bell Laboratories in 1980. In his landmark paper "An Improved Illumination Model for Shaded Display" \cite{Whitted:1980} he describes the algorithm that would become known as Recursive, or Whitted, Ray Tracing. So far ray tracing was only used to compute local illumination at the first point of intersection and the only secondary rays that were cast where shadow rays. This produced a fairly good approximation for diffuse surfaces, but was lacking in scenes with very smooth and shiny objects. Whitted took the concept of casting secondary rays and extended it to reflections and refractions. For each intersection point he would compute not only a shadow ray in the direction of each light source, but also recursively compute the color of incoming reflected and refracted light. 
+
+\begin{center}
+\begin{tikzpicture}
+  [
+    grow                    = down,
+    sibling distance        = 6em,
+    level distance          = 5em,
+    edge from parent/.style = {draw, -latex},
+    every node/.style       = {font=\footnotesize}
+  ]
+  \node [root] {}
+    child { node [text-node] {$I_{a} + k_{d} \sum_{i=1}^{ls} (N \cdot L_{i}) + k_{s}S_{1} +k_{t}T_{1}$}
+     child { node [dummy] {...}
+        child { node [leaf] {...}
+                edge from parent node [above left] {$T_{2}$} }
+        child { node [leaf] {...}
+                edge from parent node [above right] {$R_{2}$} }
+        edge from parent node [above left] {$T_{1}$} }
+     child { node [leaf] {...}
+        edge from parent node [above right]{$R_{1}$} }
+     edge from parent node [above left] {I} 
+   };
+\end{tikzpicture}
+\end{center}
+
+
+\begin{figure}[htb!]
+  \begin{centering}
+    \includesvg[width=10cm]{out}\par
+  \end{centering}
+  \label{fig:test_cube}
+\end{figure}
 
 %Finish Whitted, talk about recursiveness. Note his own comment about missing diffuse reflection
 %Kajiya, rendering equation

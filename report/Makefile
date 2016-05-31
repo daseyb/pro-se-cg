@@ -1,12 +1,12 @@
-PDFCMD = pdflatex -synctex=1 -interaction=nonstopmode
+PDFCMD = pdflatex -synctex=1 -interaction=nonstopmode 
 
 all:report.pdf
 
 %.toc:%.tex *.tex
-	${PDFCMD} $<
+	${PDFCMD} $< --shell-escape
 
 %.aux:%.tex *.tex
-	${PDFCMD} $<
+	${PDFCMD} $< --shell-escape
 
 %.bbl:%.aux references.bib *.tex
 	bibtex $(basename $<)
@@ -15,10 +15,10 @@ all:report.pdf
 	${DVICMD} $<
 
 %.pdf:%.tex *.tex %.toc %.bbl
-	${PDFCMD} $<
+	${PDFCMD} $< --shell-escape
 
 clean:
-	bash -c 'rm -f *.{toc,bbl,blg,log,pdf,aux,out,synctex.gz,run.xml}'
+	rm -f *.{toc,bbl,blg,log,pdf,aux,out,synctex.gz,run.xml}
 	rm -f report-blx.bib
 
 .PHONY: all clean pdf
