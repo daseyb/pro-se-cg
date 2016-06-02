@@ -74,14 +74,14 @@ int main(int argc, char *argv[]) {
   camTransform->position = glm::vec3(0, 0, 30);
   renderer.addRenderPass(camera, "Main"_sh);
 
-  Geometry sphereGeom = {2.0f};
+  Geometry sphereGeom = { nullptr };
   Material sphereMat = {
       {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f, 0.0f}, RenderQueue::OPAQUE};
   Entity sphere = sceneGraph.create();
   sphere.assign<Transform>();
   sphere.assign<Drawable>(sphereGeom, sphereMat);
 
-  Geometry sphereGeom2 = { 500.0f };
+  Geometry sphereGeom2 = { nullptr };
   Entity sphere2 = sceneGraph.create();
   sphere2.assign<Transform>()->position = { 0, 505, 0 };
   sphere2.assign<Drawable>(sphereGeom2, sphereMat);

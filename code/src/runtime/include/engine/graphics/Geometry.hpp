@@ -1,7 +1,6 @@
 #pragma once
-#include <glow/glow.hh>
-#include <glow/objects/VertexArray.hh>
+#include <glow/fwd.hh>
 
 struct Geometry {
-	SharedVertexArray vao;
+	glow::SharedVertexArray vao;
 };
