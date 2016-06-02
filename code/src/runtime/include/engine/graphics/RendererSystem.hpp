@@ -50,6 +50,8 @@ private:
   const ScreenSpaceSize G_BUFFER_SIZE[3] = {
       ScreenSpaceSize::HALF, ScreenSpaceSize::FULL, ScreenSpaceSize::FULL};
 
+  const size_t MAX_PRIMITIVE_COUNT = 4096;
+
   SettingsSystem *m_settings;
   EventSystem *m_events;
   WindowSystem *m_window;
@@ -71,9 +73,9 @@ private:
   SharedTexture2D m_normalMotionBuffer;
   SharedTexture2D m_depthBuffer;
   SharedTexture2D m_specularBuffer;
-
+  
   glow::SharedFramebuffer m_gBufferObject;
-
+  
   glow::SharedFramebuffer m_primaryCompositingBuffer;
   glow::SharedFramebuffer m_secondaryCompositingBuffer;
   glow::SharedFramebuffer m_postfxTargetBuffer;
@@ -82,6 +84,7 @@ private:
   SharedProgram m_passBlitProgram;
 
   SharedProgram m_raycastComputeProgram;
+  SharedProgram m_copyPrimitiveProgram;
 
   SharedProgram m_txaaProg;
 

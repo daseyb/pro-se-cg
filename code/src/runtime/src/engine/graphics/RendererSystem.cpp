@@ -3,6 +3,7 @@
 #include <glow/objects/Framebuffer.hh>
 #include <glow/objects/Program.hh>
 #include <glow/objects/VertexArray.hh>
+#include <glow/objects/ArrayBuffer.hh>
 #include <glow/objects/UniformBuffer.hh>
 #include <glow/objects/ShaderStorageBuffer.hh>
 
@@ -35,9 +36,17 @@ float random(float start, float end) {
   return start + (float(rand()) / RAND_MAX) * (end - start);
 }
 
+struct Vertex {
+	glm::vec3 pos;
+	float u;
+	glm::vec3 norm;
+	float v;
+};
+
 struct Primitive {
-    glm::vec3 pos;
-    float r;
+	Vertex a;
+	Vertex b;
+	Vertex c;
 };
 
 struct CameraData {
@@ -64,7 +73,9 @@ bool RendererSystem::startup() {
 
   m_camDataBuffer = ShaderStorageBuffer::create();
   m_primitiveBuffer = ShaderStorageBuffer::create();
-
+  auto boundSSBO = m_primitiveBuffer->bind();
+  boundSSBO.reserve(sizeof(Primitive) * MAX_PRIMITIVE_COUNT, GL_DYNAMIC_DRAW);
+	  
   // Set up framebuffer for deferred shading
   auto windowSize = m_window->getSize();
   glViewport(0, 0, windowSize.x, windowSize.y);
@@ -97,6 +108,10 @@ bool RendererSystem::startup() {
 
   m_raycastComputeProgram->setShaderStorageBuffer("CameraBuffer", m_camDataBuffer);
   m_raycastComputeProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
+
+  m_copyPrimitiveProgram = Program::createFromFile("compute/CopyPrimitive.csh");
+
+  m_copyPrimitiveProgram->setShaderStorageBuffer("CopyTargetBuffer", m_primitiveBuffer);
 
   m_events->subscribe<ResizeWindowEvent>([this](const ResizeWindowEvent &e) {
     glViewport(0, 0, (int)e.newSize.x, (int)e.newSize.y);
@@ -188,7 +203,6 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   glm::mat4 viewProjectionMatrix = glm::translate(currentOffset) * viewProjectionMatrixNoOffset;
   glm::mat4 prevViewProjectionMatrix = glm::translate(currentOffset) * aaProj * static_cast<glm::mat4>(glm::inverse(trans->lastRenderTransform));
 
-
   auto camPos = glm::vec3(camTransform * glm::vec4{ 0, 0, 0, 1 });
   auto camForward = glm::normalize(glm::vec3(camTransform * glm::vec4{ 0, 0, -1, 0 }));
   auto camRight = glm::normalize(glm::vec3(camTransform * glm::vec4{ 1, 0, 0, 0 }));
@@ -200,18 +214,37 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
   std::vector<Primitive> primitives;
 
-  for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
-      auto drawCall = pass.submittedDrawCallsOpaque[i];
-      primitives.push_back({ glm::vec3(drawCall.thisRenderTransform * glm::vec4(0, 0, 0, 1)), drawCall.geometry.radius });
+  size_t primitiveCount = 0;
+
+  auto boundCopyProgram = m_copyPrimitiveProgram->use();
+
+  for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++)  {
+	  auto drawCall = pass.submittedDrawCallsOpaque[i];
+
+	  auto mapping = drawCall.geometry.vao->getAttributeMapping();
+
+	  auto buffer = drawCall.geometry.vao->getBufferForAttribute("position");
+
+	  auto boundBuffer = buffer->bind();
+	  auto drawPrimCount = buffer->getElementCount()/3;
+
+	  glBindBufferBase(m_copyPrimitiveProgram->getObjectName(), 0, buffer->getObjectName());
+
+	  boundCopyProgram.setUniform("m2w", drawCall.thisRenderTransform);
+	  boundCopyProgram.setUniform("currentPrimitiveCount", drawPrimCount);
+	  boundCopyProgram.setUniform("writeOffset", primitiveCount);
+	  boundCopyProgram.compute(primitiveCount / 8 + 1);
+
+	  primitiveCount += drawPrimCount;
   }
 
   auto boundPrimitiveBuffer = m_primitiveBuffer->bind();
-  boundPrimitiveBuffer.setData(primitives, GL_DYNAMIC_DRAW);
 
   auto boundRaycastProgram = m_raycastComputeProgram->use();
 
   boundRaycastProgram.setUniform("pixelOffset", glm::vec2(currentOffset));
-  boundRaycastProgram.setUniform("primitiveCount", (int)primitives.size());
+  boundRaycastProgram.setUniform("primitiveCount", (int)primitiveCount);
+  boundRaycastProgram.setUniform("totalTime", (float)totalTime);
   boundRaycastProgram.setImage(0, m_secondaryCompositingBuffer->getColorAttachments()[0].texture, GL_WRITE_ONLY);
 
   auto compositingSize = m_primaryCompositingBuffer->getDim();

@@ -1,5 +1,7 @@
 #pragma once
+#include <glow/glow.hh>
+#include <glow/objects/VertexArray.hh>
 
 struct Geometry {
-    float radius;
+	SharedVertexArray vao;
 };

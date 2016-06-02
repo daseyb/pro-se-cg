@@ -52,6 +52,9 @@ struct HitInfo {
   float t;
 };
 
+float rand(vec2 co) {
+	return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
 
 bool intersectPrimitive(in Ray ray, in Primitive sphere, out HitInfo hit) {
     vec3 oc = ray.pos - sphere.pos;
@@ -73,12 +76,12 @@ bool intersectPrimitive(in Ray ray, in Primitive sphere, out HitInfo hit) {
     float t1 = c / q;
 
     // make sure t0 is smaller than t1
-    if (t0 > t1) {
-        // if t0 is bigger than t1 swap them around
-        float temp = t0;
-        t0 = t1;
-        t1 = temp;
-    }
+	if (t0 > t1) {
+		// if t0 is bigger than t1 swap them around
+		float temp = t0;
+		t0 = t1;
+		t1 = temp;
+	}
 
     // if t1 is less than zero, the object is in the ray's negative direction
     // and consequently the ray misses the sphere
@@ -123,11 +126,16 @@ struct Payload {
   vec4 col;  
 };
 
+uniform float totalTime;
+const vec3 lightPos = vec3(10, -10, 10);
+
 void trace(in Ray r, inout Payload pl) {
   
   HitInfo hit;
   if(findIntersection(r, hit)) {
-    vec3 lightDir = normalize(vec3(-1));
+	vec3 lightOffset = vec3(rand(pixelOffset + r.dir.xy*totalTime), rand(pixelOffset - r.dir.xy*totalTime), rand(pixelOffset * totalTime + r.dir.xy * 3));
+	lightOffset -= vec3(0.5);
+    vec3 lightDir = normalize(lightPos + lightOffset * 2 +  - hit.pos);
     vec3 surfaceNorm = hit.norm;
     r.pos = hit.pos + hit.norm * 0.001;
     r.dir = lightDir;
