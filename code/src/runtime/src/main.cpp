@@ -79,25 +79,26 @@ int main(int argc, char *argv[]) {
 
   auto& importer = glow::assimp::Importer();
   importer.setCalculateTangents(false);
-  importer.setGenerateSmoothNormal(true);
+  importer.setGenerateSmoothNormal(false);
   importer.setGenerateUVCoords(false);
 
   Geometry teapotGeom = { importer.load("data/geometry/teapot.obj") };
+  Geometry testSceneGeom = { importer.load("data/geometry/test_scene.blend") };
+  Geometry teddyGeom = { importer.load("data/geometry/teddy.obj") };
+  Geometry coornellBoxGeom = { importer.load("data/geometry/CornellBox-Original.obj") };
+  Geometry icosphereGeom = { importer.load("data/geometry/icosphere.obj") };
+
   Material sphereMat = {
       {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f, 0.0f}, RenderQueue::OPAQUE};
   Entity teapotCenter = sceneGraph.create();
-  teapotCenter.assign<Transform>();
-  teapotCenter.assign<Drawable>(teapotGeom, sphereMat);
+  auto boxTrans = teapotCenter.assign<Transform>();
+  teapotCenter.assign<Drawable>(testSceneGeom, sphereMat);
 
-  Geometry sphereGeom2 = { nullptr };
-  Entity sphere2 = sceneGraph.create();
-  sphere2.assign<Transform>()->position = { 0, 505, 0 };
-  sphere2.assign<Drawable>(sphereGeom2, sphereMat);
 
-  Entity teapotSide = sceneGraph.create();
-  auto teapotSideTransform = teapotSide.assign<Transform>();
+  Entity icosphereSide = sceneGraph.create();
+  auto teapotSideTransform = icosphereSide.assign<Transform>();
   teapotSideTransform->position = { -10, 0, 0 };
-  teapotSide.assign<Drawable>(teapotGeom, sphereMat);
+  icosphereSide.assign<Drawable>(icosphereGeom, sphereMat);
 
   bool keyState[SDL_NUM_SCANCODES] = {};
 
@@ -123,7 +124,7 @@ int main(int argc, char *argv[]) {
         camTransform->rotation =
             glm::rotate(camTransform->rotation, mouseMove.x * 0.001f, up);
         camTransform->rotation = glm::rotate(
-            camTransform->rotation, mouseMove.y * 0.001f, glm::vec3(-1, 0, 0));
+            camTransform->rotation, mouseMove.y * 0.001f, glm::vec3(1, 0, 0));
       }
       break;
     }

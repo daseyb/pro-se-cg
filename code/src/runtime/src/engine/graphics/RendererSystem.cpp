@@ -3,6 +3,7 @@
 #include <glow/objects/Framebuffer.hh>
 #include <glow/objects/Program.hh>
 #include <glow/objects/VertexArray.hh>
+#include <glow/objects/ElementArrayBuffer.hh>
 #include <glow/objects/ArrayBuffer.hh>
 #include <glow/objects/UniformBuffer.hh>
 #include <glow/objects/ShaderStorageBuffer.hh>
@@ -20,7 +21,6 @@
 
 #undef near
 #undef far
-
 
 using namespace glow;
 
@@ -111,7 +111,7 @@ bool RendererSystem::startup() {
 
   m_copyPrimitiveProgram = Program::createFromFile("compute/CopyPrimitive.csh");
 
-  m_copyPrimitiveProgram->setShaderStorageBuffer("CopyTargetBuffer", m_primitiveBuffer);
+  //m_copyPrimitiveProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
 
   m_events->subscribe<ResizeWindowEvent>([this](const ResizeWindowEvent &e) {
     glViewport(0, 0, (int)e.newSize.x, (int)e.newSize.y);
@@ -214,46 +214,60 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
   std::vector<Primitive> primitives;
 
-  size_t primitiveCount = 0;
+  size_t totalPrimitiveCount = 0;
 
-  auto boundCopyProgram = m_copyPrimitiveProgram->use();
+  {
+      auto boundCopyProgram = m_copyPrimitiveProgram->use();
 
-  for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++)  {
-	  auto drawCall = pass.submittedDrawCallsOpaque[i];
+      for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
+          auto drawCall = pass.submittedDrawCallsOpaque[i];
 
-      if (!drawCall.geometry.vao) {
-          continue;
+          // No geometry loaded for the draw call
+          if (!drawCall.geometry.vao) {
+              continue;
+          }
+
+          auto mapping = drawCall.geometry.vao->getAttributeMapping();
+
+          auto posBuffer = drawCall.geometry.vao->getBufferForAttribute("aPosition");
+          auto idxBuffer = drawCall.geometry.vao->getIdxBuffer();
+          auto normBuffer = drawCall.geometry.vao->getBufferForAttribute("aNormal");
+
+          //We need at least positions, indices and normals
+          if (!posBuffer || !idxBuffer || !normBuffer) {
+              continue;
+          }
+
+          {
+              auto drawPrimCount = idxBuffer->getIndexCount() / 3;
+
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuffer->getObjectName());
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, normBuffer->getObjectName());
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, idxBuffer->getObjectName());
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_primitiveBuffer->getObjectName());
+
+              boundCopyProgram.setUniform("model2World", drawCall.thisRenderTransform);
+              boundCopyProgram.setUniform("model2WorldInvTransp", glm::inverseTranspose(drawCall.thisRenderTransform));
+              boundCopyProgram.setUniform("currentPrimitiveCount", (int)drawPrimCount);
+              boundCopyProgram.setUniform("writeOffset", (int)totalPrimitiveCount);
+              boundCopyProgram.compute(drawPrimCount / 8 + 1);
+
+              totalPrimitiveCount += drawPrimCount;
+          }
       }
-           
-	  auto mapping = drawCall.geometry.vao->getAttributeMapping();
-
-	  auto buffer = drawCall.geometry.vao->getBufferForAttribute("position");
-
-	  auto boundBuffer = buffer->bind();
-	  auto drawPrimCount = buffer->getElementCount()/3;
-
-	  glBindBufferBase(m_copyPrimitiveProgram->getObjectName(), 0, buffer->getObjectName());
-
-	  boundCopyProgram.setUniform("m2w", drawCall.thisRenderTransform);
-	  boundCopyProgram.setUniform("currentPrimitiveCount", drawPrimCount);
-	  boundCopyProgram.setUniform("writeOffset", primitiveCount);
-	  boundCopyProgram.compute(primitiveCount / 8 + 1);
-
-	  primitiveCount += drawPrimCount;
   }
 
-  auto boundPrimitiveBuffer = m_primitiveBuffer->bind();
+  {
+      auto boundRaycastProgram = m_raycastComputeProgram->use();
 
-  auto boundRaycastProgram = m_raycastComputeProgram->use();
+      boundRaycastProgram.setUniform("pixelOffset", glm::vec2(currentOffset));
+      boundRaycastProgram.setUniform("primitiveCount", (int)totalPrimitiveCount);
+      boundRaycastProgram.setUniform("totalTime", (float)totalTime);
+      boundRaycastProgram.setImage(0, m_secondaryCompositingBuffer->getColorAttachments()[0].texture, GL_WRITE_ONLY);
 
-  boundRaycastProgram.setUniform("pixelOffset", glm::vec2(currentOffset));
-  boundRaycastProgram.setUniform("primitiveCount", (int)primitiveCount);
-  boundRaycastProgram.setUniform("totalTime", (float)totalTime);
-  boundRaycastProgram.setImage(0, m_secondaryCompositingBuffer->getColorAttachments()[0].texture, GL_WRITE_ONLY);
-
-  auto compositingSize = m_primaryCompositingBuffer->getDim();
-  boundRaycastProgram.compute(compositingSize.x / 8 + 1, compositingSize.y / 8 + 1);
-
+      auto compositingSize = m_primaryCompositingBuffer->getDim();
+      boundRaycastProgram.compute(compositingSize.x / 8 + 1, compositingSize.y / 8 + 1);
+  }
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
   // TXAA
   

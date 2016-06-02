@@ -50,7 +50,7 @@ private:
   const ScreenSpaceSize G_BUFFER_SIZE[3] = {
       ScreenSpaceSize::HALF, ScreenSpaceSize::FULL, ScreenSpaceSize::FULL};
 
-  const size_t MAX_PRIMITIVE_COUNT = 4096;
+  const size_t MAX_PRIMITIVE_COUNT = 32768;
 
   SettingsSystem *m_settings;
   EventSystem *m_events;

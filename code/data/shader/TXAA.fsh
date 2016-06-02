@@ -33,7 +33,7 @@ void main()
 	    depth = depthSample;
     }
   }
-  float factor = 0.85;
+  float factor = 0.95;
   vec4 history = texture(uSamplerHistory, vTexCoord - motion);  
   vec4 current = texture(uSamplerColor, vTexCoord);
   

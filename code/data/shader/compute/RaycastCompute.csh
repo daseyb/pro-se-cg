@@ -1,14 +1,11 @@
 #version 430
 
+#include "PrimitiveCommon.glsl"
+
 #define PI 3.141592683
 #define DEG_TO_RAD PI/180.0
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
-
-struct Primitive {
-  vec3 pos;
-  float r;
-};
 
 uniform vec2 pixelOffset;
 uniform int primitiveCount;
@@ -42,7 +39,7 @@ Ray generateRay(float x, float y, float w, float h) {
   
   Ray result;
   result.pos = cam.pos;
-  result.dir = normalize(cam.right.xyz * alpha + cam.up.xyz * beta + cam.forward.xyz);
+  result.dir = normalize(cam.right.xyz * alpha - cam.up.xyz * beta + cam.forward.xyz);
   return result;
 }
 
@@ -56,48 +53,88 @@ float rand(vec2 co) {
 	return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-bool intersectPrimitive(in Ray ray, in Primitive sphere, out HitInfo hit) {
-    vec3 oc = ray.pos - sphere.pos;
-    float b = 2.0 * dot(ray.dir, oc);
-    float c = dot(oc, oc) - sphere.r*sphere.r;
-    float disc = b * b - 4.0 * c;
+uint wang_hash(uint seed)
+{
+  seed = (seed ^ 61) ^ (seed >> 16);
+  seed *= 9;
+  seed = seed ^ (seed >> 4);
+  seed *= 0x27d4eb2d;
+  seed = seed ^ (seed >> 15);
+  return seed;
+}
 
-    if (disc < 0.0)
-        return false;
+float wang_float(uint hash)
+{
+  return hash / float(0x7FFFFFFF) / 2.0;
+}
 
-    // compute q as described above
-    float q;
-    if (b < 0.0)
-        q = (-b - sqrt(disc))/2.0;
-    else
-        q = (-b + sqrt(disc))/2.0;
+float uniformFloat(float min, float max, inout uint random) {
+  random = wang_hash(random);
+  return (max - min) * wang_float(random) + min;
+}
 
-    float t0 = q;
-    float t1 = c / q;
+vec2 uniformVec2(vec2 min, vec2 max, inout uint random) {
+  float x = uniformFloat(min.x, max.x, random);
+  float y = uniformFloat(min.y, max.y, random);
+  return vec2(x, y);
+}
 
-    // make sure t0 is smaller than t1
-	if (t0 > t1) {
-		// if t0 is bigger than t1 swap them around
-		float temp = t0;
-		t0 = t1;
-		t1 = temp;
-	}
+vec3 uniformVec3(vec3 min, vec3 max, inout uint random) {
+  float x = uniformFloat(min.x, max.x, random);
+  float y = uniformFloat(min.y, max.y, random);
+  float z = uniformFloat(min.z, max.z, random);
+  return vec3(x, y, z);
+}
 
-    // if t1 is less than zero, the object is in the ray's negative direction
-    // and consequently the ray misses the sphere
-    if (t1 < 0.0) {
+bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
+    const float INFINITY = 1e10;
+    vec3 u, v, n; // triangle vectors
+    vec3 w0, w;  // ray vectors
+    float r, a, b; // params to calc ray-plane intersect
+
+    // get triangle edge vectors and plane normal
+    u = tri.b.pos - tri.a.pos;
+    v = tri.c.pos - tri.a.pos;
+    n = cross(u, v);
+
+    w0 = ray.pos - tri.a.pos;
+    a = -dot(n, w0);
+    b = dot(n, ray.dir);
+    if (abs(b) < 1e-5)
+    {
+        // ray is parallel to triangle plane, and thus can never intersect.
         return false;
     }
+
+    // get intersect point of ray with triangle plane
+    r = a / b;
+    if (r < 0.0)
+        return false; // ray goes away from triangle.
+
+    vec3 I = ray.pos + r * ray.dir;
+    float uu, uv, vv, wu, wv, D;
+    uu = dot(u, u);
+    uv = dot(u, v);
+    vv = dot(v, v);
+    w = I - tri.a.pos;
+    wu = dot(w, u);
+    wv = dot(w, v);
+    D = uv * uv - uu * vv;
+
+    // get and test parametric coords
+    float s, t;
+    s = (uv * wv - vv * wu) / D;
+    if (s < 0.0 || s > 1.0)
+        return false;
+    t = (uv * wu - uu * wv) / D;
+    if (t < 0.0 || (s + t) > 1.0)
+        return false;
+
+    if(r <= 1e-5) return false;
     
-    // if t0 is less than zero, the intersection point is at t1
-    if (t0 < 0.0) {
-        hit.t = t1;
-    } else {
-        hit.t = t0; 
-    }
-    
-    hit.pos = ray.pos + hit.t * ray.dir;
-    hit.norm = normalize(hit.pos - sphere.pos);
+    hit.norm = tri.a.norm * (1.0 - s - t) + tri.b.norm * s + tri.c.norm * t;
+    hit.pos = ray.pos + r * ray.dir;
+    hit.t = r;
     
     return true;
 }
@@ -127,22 +164,26 @@ struct Payload {
 };
 
 uniform float totalTime;
-const vec3 lightPos = vec3(10, -10, 10);
+uniform uint uSeed;
 
-void trace(in Ray r, inout Payload pl) {
+const vec3 lightPos = vec3(0, 8, 10);
+
+void trace(in Ray r, inout Payload pl, inout uint random) {
   
   HitInfo hit;
   if(findIntersection(r, hit)) {
-	vec3 lightOffset = vec3(rand(pixelOffset + r.dir.xy*totalTime), rand(pixelOffset - r.dir.xy*totalTime), rand(pixelOffset * totalTime + r.dir.xy * 3));
-	lightOffset -= vec3(0.5);
-    vec3 lightDir = normalize(lightPos + lightOffset * 2 +  - hit.pos);
+	  vec3 lightOffset = uniformVec3(vec3(-1), vec3(1), random);
+    
+    vec3 lightDir = lightPos + lightOffset +  - hit.pos;
+    float lightDist = length(lightDir);
+    lightDir = normalize(lightDir);
     vec3 surfaceNorm = hit.norm;
     r.pos = hit.pos + hit.norm * 0.001;
     r.dir = lightDir;
     pl.col = vec4(0.01, 0.01, 0.01, 1);
     
     if(!findIntersection(r, hit)) {
-      pl.col += vec4(vec3(clamp(dot(lightDir, surfaceNorm), 0, 1)), 1);
+      pl.col += vec4(vec3(clamp(dot(lightDir, surfaceNorm), 0, 1)) * 50.0/(lightDist*lightDist), 1);
     }
   }
 }
@@ -150,6 +191,8 @@ void trace(in Ray r, inout Payload pl) {
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main() {
   ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
+  uint random = wang_hash(wang_hash( uint(3000*totalTime) + storePos.x * 7) + storePos.y * 15001);
+
   ivec2 imgSize = imageSize(backBuffer);
   
   if(storePos.x >= imgSize.x || storePos.y >= imgSize.y) return;
@@ -158,7 +201,7 @@ void main() {
   
   Payload pl;
   pl.col = vec4(0, 0, 0, 1);
-  trace(r, pl);
+  trace(r, pl, random);
 
   imageStore(backBuffer, storePos, pl.col);
  }
