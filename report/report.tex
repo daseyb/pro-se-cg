@@ -3,6 +3,7 @@
 \documentclass{ACGSeminar}
 \usepackage{tikz}
 \usepackage{svg}
+\usepackage{mathtools}
 
 \tikzset{
   root/.style     = {draw=none},
@@ -60,10 +61,29 @@ Appel's technique was very compute intensive for its time, but already illustrat
   \label{fig:appel_tracing}
 \end{figure}
 
-The next major contribution to ray tracing came from Turner Whitted of Bell Laboratories in 1980. In his landmark paper "An Improved Illumination Model for Shaded Display" \cite{Whitted:1980} he describes the algorithm that would become known as Recursive, or Whitted, Ray Tracing. So far ray tracing was only used to compute local illumination at the first point of intersection and the only secondary rays that were cast where shadow rays. This produced a fairly good approximation for diffuse surfaces, but was lacking in scenes with very smooth and shiny objects. Whitted took the concept of casting secondary rays and extended it to reflections and refractions. For each intersection point he would compute not only a shadow ray in the direction of each light source, but also recursively compute the color of incoming reflected and refracted light. 
+The next major contribution to ray tracing came from Turner Whitted of Bell Laboratories in 1980. In his landmark paper "An Improved Illumination Model for Shaded Display" \cite{Whitted:1980} he describes the algorithm that would become known as Recursive, or Whitted, Ray Tracing. So far ray tracing was only used to compute local illumination at the first point of intersection and the only secondary rays that were cast were shadow rays. This produced a fairly good approximation for diffuse surfaces, but was lacking in scenes with very reflective objects. Whitted took the concept of casting secondary rays and extended it to reflections and refractions. For each intersection point he proposed to not only compute a shadow ray in the direction of each light source, but also recursively compute the color of incoming reflected and refracted light. 
+The model used to compute the illumination at a surface point is:
 
-\begin{center}
-\begin{tikzpicture}
+\begin{equation} \label{eq:illum-model}
+I_{i}(x) = \overbrace{E_{i}(x)}^{\mathclap{\text{Emission}}} 
+           + \underbrace{ k_{i}^{d} \sum_{j=1}^{n_{lights}} (N_{i}(x) \cdot L_{j})}_{\mathclap{\text{Direct/local illumination}}} 
+           + \overbrace{k_{i}^{s}S_{i+1}(x)}^{\mathclap{\text{Specular lighting (reflected)}}} 
+           + \underbrace{k_{i}^{t}T_{i+1}(x)}_{\mathclap{\text{Transmissive lighting (refracted)}}} 
+\end{equation}
+
+For each path through the scene like the one in Figure \ref{fig:ray-path} a tree of rays is build (see Figure \ref{fig:illum-tree}). This tree is evaluated bottom up using Equation \ref{eq:illum-model} and the value of the root node is stored as the pixel color.
+
+\begin{figure}[htb!]
+  \begin{centering}
+    \includesvg[width=10cm]{out}\par
+  \end{centering}
+  \caption{Ray tree of path in Figure \ref{fig:ray-path}}
+  \label{fig:ray-path}
+\end{figure}
+
+\begin{figure}[htb!]
+  \begin{center}
+  \begin{tikzpicture}
   [
     grow                    = down,
     sibling distance        = 6em,
@@ -72,8 +92,8 @@ The next major contribution to ray tracing came from Turner Whitted of Bell Labo
     every node/.style       = {font=\footnotesize}
   ]
   \node [root] {}
-    child { node [text-node] {$I_{a} + k_{d} \sum_{i=1}^{ls} (N \cdot L_{i}) + k_{s}S_{1} +k_{t}T_{1}$}
-     child { node [dummy] {...}
+    child { node [text-node] {$I_{0}$}
+     child { node [text-node] {$I_{1}$}
         child { node [leaf] {...}
                 edge from parent node [above left] {$T_{2}$} }
         child { node [leaf] {...}
@@ -83,16 +103,20 @@ The next major contribution to ray tracing came from Turner Whitted of Bell Labo
         edge from parent node [above right]{$R_{1}$} }
      edge from parent node [above left] {I} 
    };
-\end{tikzpicture}
-\end{center}
-
-
-\begin{figure}[htb!]
-  \begin{centering}
-    \includesvg[width=10cm]{out}\par
-  \end{centering}
-  \label{fig:test_cube}
+  \end{tikzpicture}
+  \end{center}
+  \caption{Ray tree of path in Figure \ref{fig:ray-path}}
+  \label{fig:illum-tree}
 \end{figure}
+This technique produced fairly realistic looking results, but Whitted himself acknowledged that it did not provide a solution to global illumination since objects could not act as light sources themselves and diffuse interreflections where not accounted for.
+
+Over the next years many different approaches to solve this issue where proposed and in 1986 James T. Kajiya published a paper titled "The Rendering Equation"  \cite{Kajiya:1986} in which he presents an equation to describe the propagation of light in a scene. It is general enough to describe all optical phenomena we care about in computer graphics and this made it possible to classify rendering algorithms by how well they approximate a solution to the rendering equation.
+
+\begin{equation} \label{eq:rendering-equation}
+I(x,x')=g(x,x') [\epsilon(x,x') + \int_{S}{p(x,x',x'')I(x',x'')dx''}]
+\end{equation}
+
+The main difference between rendering algorithms is how they approach the evaluation of the integral in \eqref{eq:rendering-equation}. It cannot be evaluated analytically for scenes which are even remotely interesting, but the formulation of the rendering problem as an integral equation allows us to employ methods from calculus to devise new algorithms. This is where the idea of path tracing stems from.
 
 %Finish Whitted, talk about recursiveness. Note his own comment about missing diffuse reflection
 %Kajiya, rendering equation
@@ -110,7 +134,7 @@ Going logarithmic!
 \subsection{BSP and KD-Trees}
 \subsection{Volume Hierarchies}
 
-\section{Accelerating the convergence of path tracing}
+\section{Reducing Variance}
 Here's where \cite{Pharr:2010:PBR:1854996} comes in.
 \subsection{Gradient-Domain Path Tracing}
 Do I really want to go here? \cite{Kettunen2015sg} I'll implement everything else first and see if I have time left.
