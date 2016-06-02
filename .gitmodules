@@ -1,3 +1,9 @@
 [submodule "code/extern/glow"]
 	path = code/extern/glow
 	url = https://www.graphics.rwth-aachen.de:9000/dseyb/glow.git
+[submodule "code/extern/glow-extras"]
+	path = code/extern/glow-extras
+	url = https://www.graphics.rwth-aachen.de:9000/Glow/glow-extras.git
+[submodule "code/extern/assimp-lean"]
+	path = code/extern/assimp-lean
+	url = https://www.graphics.rwth-aachen.de:9000/ptrettner/assimp-lean.git

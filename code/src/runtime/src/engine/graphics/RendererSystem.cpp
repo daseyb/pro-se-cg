@@ -221,6 +221,10 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++)  {
 	  auto drawCall = pass.submittedDrawCallsOpaque[i];
 
+      if (!drawCall.geometry.vao) {
+          continue;
+      }
+           
 	  auto mapping = drawCall.geometry.vao->getAttributeMapping();
 
 	  auto buffer = drawCall.geometry.vao->getBufferForAttribute("position");

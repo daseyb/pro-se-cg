@@ -17,6 +17,9 @@
 #include <engine/events/KeyboardEvent.hpp>
 #include <engine/core/SimulateEvent.hpp>
 
+#include <glow-extras/assimp/Importer.hh>
+#include <glow/objects/VertexArray.hh>
+
 #include <engine/graphics/BloomPostFX.hpp>
 
 #include <glm/glm.hpp>
@@ -74,22 +77,27 @@ int main(int argc, char *argv[]) {
   camTransform->position = glm::vec3(0, 0, 30);
   renderer.addRenderPass(camera, "Main"_sh);
 
-  Geometry sphereGeom = { nullptr };
+  auto& importer = glow::assimp::Importer();
+  importer.setCalculateTangents(false);
+  importer.setGenerateSmoothNormal(true);
+  importer.setGenerateUVCoords(false);
+
+  Geometry teapotGeom = { importer.load("data/geometry/teapot.obj") };
   Material sphereMat = {
       {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f, 0.0f}, RenderQueue::OPAQUE};
-  Entity sphere = sceneGraph.create();
-  sphere.assign<Transform>();
-  sphere.assign<Drawable>(sphereGeom, sphereMat);
+  Entity teapotCenter = sceneGraph.create();
+  teapotCenter.assign<Transform>();
+  teapotCenter.assign<Drawable>(teapotGeom, sphereMat);
 
   Geometry sphereGeom2 = { nullptr };
   Entity sphere2 = sceneGraph.create();
   sphere2.assign<Transform>()->position = { 0, 505, 0 };
   sphere2.assign<Drawable>(sphereGeom2, sphereMat);
 
-  Entity sphere3 = sceneGraph.create();
-  auto sphere3Transform = sphere3.assign<Transform>();
-  sphere3Transform->position = { -10, 0, 0 };
-  sphere3.assign<Drawable>(sphereGeom, sphereMat);
+  Entity teapotSide = sceneGraph.create();
+  auto teapotSideTransform = teapotSide.assign<Transform>();
+  teapotSideTransform->position = { -10, 0, 0 };
+  teapotSide.assign<Drawable>(teapotGeom, sphereMat);
 
   bool keyState[SDL_NUM_SCANCODES] = {};
 
@@ -163,7 +171,7 @@ int main(int argc, char *argv[]) {
           camTransform->position += moveDir * e.dt * speed;
       }
 
-      sphere3Transform->position = glm::vec3(sinf(e.totalTime), 0.0f, cosf(e.totalTime)) * 5.0f;
+      teapotSideTransform->position = glm::vec3(sinf(e.totalTime), 0.0f, cosf(e.totalTime)) * 5.0f;
   });
 
   // Kickoff the gameloop

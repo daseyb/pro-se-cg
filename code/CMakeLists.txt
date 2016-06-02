@@ -27,6 +27,9 @@ if (OPENGL_FOUND)
     MESSAGE("OpenGL environment missing")
 endif (OPENGL_FOUND)
 
+add_subdirectory(extern/assimp-lean)
+add_subdirectory(extern/glow-extras)
+
 add_subdirectory(extern/glow)
 include_directories(${GLOW_INCLUDE_DIRECTORIES})
 
@@ -50,7 +53,7 @@ set(DLLS ${FMOD_DLLS})
 add_subdirectory(extern/portmidi)
 include_directories(extern/portmidi/pm_common)
 
-set(LIBRARIES glow SDL2-static SDL2main portmidi-static ${OPENGL_LIBRARIES} ${FMOD_LIBRARIES})
+set(LIBRARIES glow glow-extras SDL2-static SDL2main portmidi-static ${OPENGL_LIBRARIES} ${FMOD_LIBRARIES})
 
 #
 # MacOS X:
