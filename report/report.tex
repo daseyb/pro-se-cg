@@ -1,10 +1,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Document settings
 \documentclass{ACGSeminar}
+
 \usepackage{tikz}
 \usepackage{svg}
 \usepackage{mathtools}
 \usepackage{tikz-3dplot}
+\usepackage{pst-all}
+\usepackage{pstricks-add}
+\usepackage{graphicx}
+\usepackage{pspicture}
 
 \tikzset{
   root/.style     = {draw=none},
@@ -52,7 +57,7 @@ Real time ray tracing is appealing, especially in the context of creative work, 
 
 \begin{figure}[htb!]
   \begin{centering}
-    \includegraphics[width=12cm]{figures/blender_preview.png}\par
+    \includegraphics[width=12cm,natwidth=1307,natheight=682]{figures/blender_preview.png}\par
   \end{centering}
   \caption{Interactive ray traced scene view in Blender (blender.org).}
   \label{fig:blender_preview}
@@ -79,7 +84,7 @@ Appel's technique was very compute intensive for its time, but already illustrat
 
 \begin{figure}[htb!]
   \begin{centering}
-    \includegraphics[width=12cm]{figures/Appel_Shading.png}\par
+    \includegraphics[width=12cm,natwidth=1233,natheight=661]{figures/Appel_Shading.png}\par
   \end{centering}
   \caption{Left: Unshaded Line/Point Drawing, Right: Drawing augmented with the technique introduced in \cite{Appel68}}
   \label{fig:appel_tracing}
@@ -89,7 +94,7 @@ The next major contribution to ray tracing came from Turner Whitted of Bell Labo
 
 \begin{figure}[htb!]
   \begin{centering}
-    \includegraphics[width=12cm]{figures/whitted_raytracing.png}\par
+    \includegraphics[width=12cm,natwidth=1280,natheight=720]{figures/whitted_raytracing.png}\par
   \end{centering}
   \caption{Whitted Ray Tracing implemented in the offline renderer "Zaphod" \cite{Zaphod}.}
   \label{fig:whitted-example}
@@ -110,20 +115,19 @@ I(x,x')= \overbrace{g(x,x')}^{\mathclap{\text{Geometry Term}}}
 It describes the light transport between two points $x$ and $x'$ as a combination of emitted and reflected light at $x'$. The geometry term describes the amount of light that actually arrives at $x$ (e.g. $g(x,x') = 0$ if there is an object between the two points). To compute the reflected light we need to integrate over all directions in the hemisphere $S$ above point $x'$. 
 The main difference between rendering algorithms is how they approach the evaluation of this integral. It cannot be evaluated analytically for scenes which are even remotely interesting, but the formulation of the rendering problem as an integral equation allows us to employ methods from calculus to devise new algorithms.
 
-
 \begin{figure}[htb!]
   \begin{centering}
     \tdplotsetmaincoords{0}{0}
     \begin{tikzpicture}[tdplot_main_coords]
       \draw[thick,-] (-4,0) -- (4,0) node[anchor=north east]{Surface};
-      \draw[thick,->] (0,0) -- (0,3) node[anchor=north west]{$\vec{n}$};
+      \draw[thick,->] (0,0) -- (0,2.5) node[anchor=north west]{$\vec{n}$};
       \draw[thick,->] (0,0) -- (-3.5,3.0) node[anchor=south east]{$\overrightarrow{x'x}$};
       \tdplotdefinepoints(0,0,0)(0,2,0)(-3.5,3.0,0);
       \tdplotdrawpolytopearc[thin,<->]{1.25}{anchor=south}{$\omega_0$};
       \draw[thick,dashed] (0,0) -- (3.5,1.5) node[anchor=south west]{$\overrightarrow{x''x'}$};
       \tdplotdefinepoints(0,0,0)(0,2,0)(3.5,1.5,0);
       \tdplotdrawpolytopearc[thin,<->]{1.5}{anchor=south}{$\omega_1$};
-      \draw[thin, densely dotted] (0,0) -- (1, 0) arc (0:180:1cm) -- cycle;
+      \draw[thin, densely dotted, <-] (0,0) -- (1, 0) arc (0:180:1cm) -- cycle;
       \draw (1,0) node[below]{$S$};
       \draw (0,0) node[below]{$x'$};
     \end{tikzpicture}\par
@@ -132,12 +136,18 @@ The main difference between rendering algorithms is how they approach the evalua
   \label{fig:light-transport}
 \end{figure}
 
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Second Section
 \section{Overview over the path tracing algorithm} \label{path-tracing}
 Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The value 
+
+\begin{figure}[htb!]
+  \begin{centering}
+    \input{figures/light-path}\par
+  \end{centering}
+  \caption{A light path through a scene.}
+  \label{fig:light-path}
+\end{figure}
 
 % Path integral formulation, monte carlo methods
 
@@ -173,7 +183,7 @@ Timing comparisons between the different techniques.
 
 \begin{figure}[htb!]
   \begin{centering}
-    \includegraphics[width=10cm]{figures/Output_PT_10kSPP.png}\par
+    \includegraphics[width=10cm,natwidth=1920,natheight=1080]{figures/Output_PT_10kSPP.png}\par
   \end{centering}
   \caption{This is what my path tracer is rendering right now, but not in real time.}
   \label{fig:pathtraced}
@@ -183,6 +193,6 @@ Timing comparisons between the different techniques.
 % Bibliography
 
 \printbibliography
-\cleardoublepage
+
 
 \end{document}
