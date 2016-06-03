@@ -46,4 +46,6 @@
 *.bak
 *.toc
 *.log
+*.ps
+*.inputs
 report/report-blx.bib
