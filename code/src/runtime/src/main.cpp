@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   Context context;
   SettingsSystem settings(&context, "data/", "textures/", "geometry/",
                           "shader/", "sound/", configFile);
-  WindowSystem window(&context, 1280, 720, false);
+  WindowSystem window(&context, 640, 320, false);
   ProfilerSystem profiler(&context);
   EventSystem events(&context);
   RendererSystem renderer(&context);

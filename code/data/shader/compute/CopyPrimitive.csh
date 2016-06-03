@@ -38,10 +38,10 @@ void main() {
   for(uint i = 0; i < 3; i++) {
     uint index = indices[indexIdxBase+i];
     Vertex currVert;
-    currVert.pos = (model2World * vertices[index]).xyz;
+    currVert.pos = (model2World * vec4(vertices[index].xyz, 1)).xyz;
     currVert.u = 0;
     currVert.v = 0;
-    currVert.norm = normalize( (model2WorldInvTransp * normals[index]).xyz );
+    currVert.norm = normalize( (model2WorldInvTransp * vec4(normals[index].xyz, 0)).xyz );
     verts[i] = currVert;
     
   }

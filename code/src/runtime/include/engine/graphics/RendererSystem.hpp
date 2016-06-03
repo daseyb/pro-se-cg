@@ -68,11 +68,8 @@ private:
 
   std::vector<ScreenSpaceTexture> m_screenSpaceTextures;
 
-  SharedTexture2D m_colorBuffer;
-  SharedTexture2D m_emissiveBuffer;
   SharedTexture2D m_normalMotionBuffer;
   SharedTexture2D m_depthBuffer;
-  SharedTexture2D m_specularBuffer;
   
   glow::SharedFramebuffer m_gBufferObject;
   
@@ -86,6 +83,7 @@ private:
   SharedProgram m_raycastComputeProgram;
   SharedProgram m_copyPrimitiveProgram;
 
+  SharedProgram m_motionVectorProgram;
   SharedProgram m_txaaProg;
 
   SharedShaderStorageBuffer m_camDataBuffer;

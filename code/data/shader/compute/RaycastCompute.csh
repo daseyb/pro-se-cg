@@ -2,13 +2,30 @@
 
 #include "PrimitiveCommon.glsl"
 
-#define PI 3.141592683
-#define DEG_TO_RAD PI/180.0
 
-layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
+const float MAX_DISTANCE = 500;
+const float EPSILON = 0.001;
+const float PI = 3.14159265359;
+
+struct Payload {
+  vec4 col;  
+};
 
 uniform vec2 pixelOffset;
 uniform int primitiveCount;
+uniform float totalTime;
+uniform uint uSeed;
+uniform int uMaxBounces = 2;
+
+const vec3 lightPos = vec3(0, 8, 10);
+const vec3 dielecSpec = vec3(0.02);
+
+const Material[] materials = Material[]( Material( vec3(1, 1, 1), dielecSpec, 0.7, 0.0, 1.0) );
+const SphereLight[] lights = SphereLight[](
+  SphereLight( vec3(0, 8, 8), .1, vec3(0, 1, 1) )
+);
+
+layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 
 layout(std140, binding = 1) buffer PrimitiveBuffer { 
 	Primitive primitives[]; 
@@ -22,35 +39,30 @@ layout(std140, binding = 2) buffer CameraBuffer {
    vec4 up;
 } cam;
 
-struct Ray {
-  vec3 pos;
-  vec3 dir;
-};
-
 Ray generateRay(float x, float y, float w, float h) {
-  float fovx = cam.fov * DEG_TO_RAD;        // Horizontal FOV
+  float fovx = cam.fov;       // Horizontal FOV
   float fovy = fovx * h / w;  // Vertical FOV
 
-  float halfWidth =  w / 2.0f;
-  float halfHeight = h / 2.0f;
+  float halfWidth =  w * 0.5f;
+  float halfHeight = h * 0.5f;
 
-  float alpha = tan(fovx / 2.0f) * ((x - halfWidth) / halfWidth);
-  float beta = tan(fovy / 2.0f) * ((halfHeight - y) / halfHeight);
+  float alpha = tan(fovx * 0.5f) * ((x - halfWidth) / halfWidth);
+  float beta = tan(fovy * 0.5f) * ((halfHeight - y) / halfHeight);
   
   Ray result;
   result.pos = cam.pos;
-  result.dir = normalize(cam.right.xyz * alpha - cam.up.xyz * beta + cam.forward.xyz);
+  result.dir = normalize(cam.right.xyz * alpha * 2 - cam.up.xyz * beta * 2 + cam.forward.xyz);
   return result;
 }
 
-struct HitInfo {
-  vec3 pos;
-  vec3 norm;
-  float t;
-};
+// =============================================================================
+// Helper
+vec3 igamma(vec3 color) {
+  return pow(color, vec3(2.2));
+}
 
-float rand(vec2 co) {
-	return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+vec3 igamma(float r, float g, float b) {
+  return igamma(vec3(r, g, b));
 }
 
 uint wang_hash(uint seed)
@@ -86,63 +98,113 @@ vec3 uniformVec3(vec3 min, vec3 max, inout uint random) {
   return vec3(x, y, z);
 }
 
-bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
-    const float INFINITY = 1e10;
-    vec3 u, v, n; // triangle vectors
-    vec3 w0, w;  // ray vectors
-    float r, a, b; // params to calc ray-plane intersect
+vec3 directionCosTheta(vec3 normal, inout uint random) {
+  float u1 = uniformFloat(0, 1, random);
+  float phi = uniformFloat(0, 2 * PI, random);
 
-    // get triangle edge vectors and plane normal
-    u = tri.b.pos - tri.a.pos;
-    v = tri.c.pos - tri.a.pos;
-    n = cross(u, v);
+  float f = sqrt(1 - u1);
 
-    w0 = ray.pos - tri.a.pos;
-    a = -dot(n, w0);
-    b = dot(n, ray.dir);
-    if (abs(b) < 1e-5)
-    {
-        // ray is parallel to triangle plane, and thus can never intersect.
-        return false;
-    }
+  float x = f * cos(phi);
+  float y = f * sin(phi);
+  float z = sqrt(u1);
 
-    // get intersect point of ray with triangle plane
-    r = a / b;
-    if (r < 0.0)
-        return false; // ray goes away from triangle.
+  vec3 xDir = abs(normal.x) < abs(normal.y) ? vec3(1, 0, 0) : vec3(0, 1, 0);
+  vec3 yDir = normalize(cross(normal, xDir));
+  xDir = cross(yDir, normal);
+  return xDir * x + yDir * y + z * normal;
+}
 
-    vec3 I = ray.pos + r * ray.dir;
-    float uu, uv, vv, wu, wv, D;
-    uu = dot(u, u);
-    uv = dot(u, v);
-    vv = dot(v, v);
-    w = I - tri.a.pos;
-    wu = dot(w, u);
-    wv = dot(w, v);
-    D = uv * uv - uu * vv;
+vec3 directionUniform(vec3 normal, inout uint random) {
+  float u1 = uniformFloat(0, 1, random);
+  float phi = uniformFloat(0, 2 * PI, random);
+  float f = sqrt(1 - u1 * u1);
 
-    // get and test parametric coords
-    float s, t;
-    s = (uv * wv - vv * wu) / D;
-    if (s < 0.0 || s > 1.0)
-        return false;
-    t = (uv * wu - uu * wv) / D;
-    if (t < 0.0 || (s + t) > 1.0)
-        return false;
+  float x = f * cos(phi);
+  float y = f * sin(phi);
+  float z = u1;
 
-    if(r <= 1e-5) return false;
-    
-    hit.norm = tri.a.norm * (1.0 - s - t) + tri.b.norm * s + tri.c.norm * t;
-    hit.pos = ray.pos + r * ray.dir;
-    hit.t = r;
-    
-    return true;
+  vec3 dir = vec3(x, y, z);
+  dir *= sign(dot(dir, normal));
+
+  return dir;
+}
+
+// =============================================================================
+// Material
+
+// GGX BRDF, no cos(theta), no div by PI
+float GGX(vec3 N, vec3 V, vec3 L, float roughness, float F0)
+{
+    // see http://www.filmicworlds.com/2014/04/21/optimizing-ggx-shaders-with-dotlh/
+    vec3 H = normalize(V + L);
+
+    float dotLH = max(dot(L, H), 0.0);
+    float dotNH = max(dot(N, H), 0.0);
+    float dotNL = max(dot(N, L), 0.0);
+    float dotNV = max(dot(N, V), 0.0);
+
+    float alpha = roughness * roughness;
+
+    // D (GGX normal distribution)
+    float alphaSqr = alpha * alpha;
+    float denom = dotNH * dotNH * (alphaSqr - 1.0) + 1.0;
+    float D = alphaSqr / (PI * denom * denom);
+    // pi because BRDF
+
+    // F (Fresnel term)
+    float F_a = 1.0;
+    float F_b = pow(1.0 - dotLH, 5); // manually?
+    float F = mix(F_b, F_a, F0);
+
+    // G (remapped hotness, see Unreal Shading)
+    float k = (alpha + 2 * roughness + 1) / 8.0;
+    float G = dotNL / (mix(dotNL, 1, k) * mix(dotNV, 1, k));
+    // '* dotNV' - canceled by normalization
+
+
+    // '/ dotLN' - canceled by lambert NOT
+    // '/ dotNV' - canceled by G
+    return D * F * G / 4.0 / dotNL;
+}
+// GGX for Shading, includes cos(theta), no div by PI
+float shadingGGX(vec3 N, vec3 V, vec3 L, float roughness, float F0)
+{
+    // see http://www.filmicworlds.com/2014/04/21/optimizing-ggx-shaders-with-dotlh/
+    vec3 H = normalize(V + L);
+
+    float dotLH = max(dot(L, H), 0.0);
+    float dotNH = max(dot(N, H), 0.0);
+    float dotNL = max(dot(N, L), 0.0);
+    float dotNV = max(dot(N, V), 0.0);
+
+    float alpha = roughness * roughness + 0.0001;
+
+    // D (GGX normal distribution)
+    float alphaSqr = alpha * alpha;
+    float denom = dotNH * dotNH * (alphaSqr - 1.0) + 1.0;
+    float D = alphaSqr / (denom * denom);
+    // NO pi because BRDF -> lighting
+
+    // F (Fresnel term)
+    float F_a = 1.0;
+    float F_b = pow(1.0 - dotLH, 5); // manually?
+    float F = mix(F_b, F_a, F0);
+
+    // G (remapped hotness, see Unreal Shading)
+    float k = (alpha + 2 * roughness + 1) / 8.0;
+    float G = dotNL / (mix(dotNL, 1, k) * mix(dotNV, 1, k));
+    // '* dotNV' - canceled by normalization
+
+
+    // '/ dotLN' - canceled by lambert
+    // '/ dotNV' - canceled by G
+    return max(0.0, min(10, D * F * G / 4.0));
 }
 
 
-bool findIntersection(in Ray r, out HitInfo hit) {
+bool intersect(in Ray r, float maxDist, out HitInfo hit) {
   bool didIntersect = false;
-  hit.t = 10000.0;
+  hit.t = maxDist;
   for(int i = 0; i < primitiveCount; i++) {
     Primitive p = primitives[i];
     
@@ -156,36 +218,107 @@ bool findIntersection(in Ray r, out HitInfo hit) {
       }
     }
   }
+  
+  hit.material = materials[hit.matId];
   return didIntersect;
 }
 
-struct Payload {
-  vec4 col;  
-};
 
-uniform float totalTime;
-uniform uint uSeed;
 
-const vec3 lightPos = vec3(0, 8, 10);
+// =============================================================================
+// Illumination
 
-void trace(in Ray r, inout Payload pl, inout uint random) {
-  
-  HitInfo hit;
-  if(findIntersection(r, hit)) {
-	  vec3 lightOffset = uniformVec3(vec3(-1), vec3(1), random);
+// direct illu at a given point
+// inDir points TOWARDS the surface
+float directIllumination(vec3 pos, vec3 inDir, vec3 N, vec3 colorFilter, Material material) {
+  HitInfo intr;
+  float color = 0;
+
+  float specularColor = dot(material.specularColor, colorFilter);
+  float diffuseColor = dot(material.diffuseColor, colorFilter) * (1 - specularColor);
+
+  int lightCnt = lights.length();
+  for (int i = 0; i < lightCnt; ++i) {
+    SphereLight l = lights[i];
+
+    vec3 V = -inDir;
+    vec3 L = l.center - pos;
+    float lightDis = length(L);
+    L /= lightDis;
     
-    vec3 lightDir = lightPos + lightOffset +  - hit.pos;
-    float lightDist = length(lightDir);
-    lightDir = normalize(lightDir);
-    vec3 surfaceNorm = hit.norm;
-    r.pos = hit.pos + hit.norm * 0.001;
-    r.dir = lightDir;
-    pl.col = vec4(0.01, 0.01, 0.01, 1);
+    Ray r;
+    r.pos = pos;
+    r.dir = L;
+
+    if (intersect(r, lightDis, intr))
+      continue;
+
+    // diffuse
+    color += max(0.0, dot(L, N)) * dot(l.color, colorFilter) * diffuseColor;
+
+    // specular
+    color += shadingGGX(N, V, L, material.roughness, specularColor);
+  }
+
+  return color;
+}
+
+// =============================================================================
+// tracing
+float trace(Ray r, vec3 colorFilter, inout uint random) {
+  HitInfo intr;
+  int bounces = 2;
+
+  vec3 pos = r.pos;
+  vec3 dir = r.dir;
+  float weight = 1;
+
+  for (int b = 0; b < bounces; ++b) {
+    r.pos = pos;
+    r.dir = dir;
     
-    if(!findIntersection(r, hit)) {
-      pl.col += vec4(vec3(clamp(dot(lightDir, surfaceNorm), 0, 1)) * 50.0/(lightDist*lightDist), 1);
+    // step 1: intersect with scene
+    if (!intersect(r, MAX_DISTANCE, intr))
+      return 0; // TODO: cubemap
+
+    // step 2: russian roulette
+    float rhoS = dot(colorFilter, intr.material.specularColor);
+    float rhoD = dot(colorFilter, intr.material.diffuseColor);
+    float rhoR = intr.material.refractiveness;
+
+    // REFLECT glossy
+    if (uniformFloat(0, 1, random) <= rhoS)
+    {
+      dir = reflect(dir, intr.norm);
+      pos = intr.pos;
+      weight *= 1; // specular
+    }
+    // REFLECT diffuse
+    else if (uniformFloat(0, 1, random) <= rhoD)
+    {
+      dir = directionCosTheta(intr.norm, random);
+      pos = intr.pos;
+      weight *= 1; // cos theta vs p(w), f vs. rho, pi in p(w) and f
+    }
+    // REFRACT
+    else if (uniformFloat(0, 1, random) <= rhoR)
+    {
+      float inside = sign(dot(dir, intr.norm)); // 1 for inside, -1 for outside
+      dir = refract(dir, -inside * intr.norm, inside < 0 ? 1 / intr.material.eta : intr.material.eta);
+      pos = intr.pos;
+      weight *= 1; // refractive
+    }
+    // EMIT
+    else
+    {
+      float color = directIllumination(intr.pos, dir, intr.norm, colorFilter, intr.material);
+      return weight * color / (1 - rhoS) / (1 - rhoD) / (1 - rhoR);
     }
   }
+
+  // last bounce
+  float color = directIllumination(intr.pos, dir, intr.norm, colorFilter, intr.material);
+  return weight * color;
 }
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -201,7 +334,15 @@ void main() {
   
   Payload pl;
   pl.col = vec4(0, 0, 0, 1);
-  trace(r, pl, random);
-
+  
+  for(int i = 0; i < 2; i++) {
+    pl.col.r += trace(r, vec3(1,0,0), random);
+    pl.col.g += trace(r, vec3(0,1,0), random);
+    pl.col.b += trace(r, vec3(0,0,1), random);
+  }
+  pl.col*=0.5;
+  
+  pl.col = clamp(pl.col, vec4(0), vec4(1));
+  
   imageStore(backBuffer, storePos, pl.col);
  }

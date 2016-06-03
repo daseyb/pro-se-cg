@@ -82,18 +82,11 @@ bool RendererSystem::startup() {
 
   auto currentGBufferSize = G_BUFFER_SIZE[(int)m_quality];
 
-  m_colorBuffer = createScreenspaceTexture(currentGBufferSize, GL_RGBA16F);
-  m_emissiveBuffer = createScreenspaceTexture(currentGBufferSize, GL_RGBA16F);
   m_normalMotionBuffer = createScreenspaceTexture(currentGBufferSize, GL_RGBA16F);
-  m_specularBuffer = createScreenspaceTexture(currentGBufferSize, GL_RGBA16F);
   m_depthBuffer = createScreenspaceTexture(currentGBufferSize, GL_DEPTH_COMPONENT24);
 
   m_gBufferObject =
-      Framebuffer::create({{"oColor", m_colorBuffer},
-                           {"oEmissive", m_emissiveBuffer},
-                           {"oNormalMotion", m_normalMotionBuffer},
-                           {"oSpecularSmoothness", m_specularBuffer}},
-                          m_depthBuffer);
+      Framebuffer::create({{"oNormalMotion", m_normalMotionBuffer}}, m_depthBuffer);
 
   m_primaryCompositingBuffer = Framebuffer::create({ { "oColor", createScreenspaceTexture(currentGBufferSize, GL_RGBA32F) } });
 
@@ -105,6 +98,7 @@ bool RendererSystem::startup() {
   m_passBlitProgram = Program::createFromFile("PassBlit");
   m_txaaProg = Program::createFromFile("TXAA");
   m_raycastComputeProgram = Program::createFromFile("compute/RaycastCompute.csh");
+  m_motionVectorProgram = Program::createFromFile("MotionVectors");
 
   m_raycastComputeProgram->setShaderStorageBuffer("CameraBuffer", m_camDataBuffer);
   m_raycastComputeProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
@@ -123,10 +117,7 @@ bool RendererSystem::startup() {
 
   m_events->subscribe<"DrawUI"_sh>([this]() {
     ImGui::Begin("GBuffer", 0, ImGuiWindowFlags_AlwaysAutoResize);
-    ImGui::Image((void*)m_colorBuffer->getObjectName(), glm::vec2{ 1280, 720 } *0.2f, { 0, 1 }, { 1, 0 });
-    ImGui::Image((void*)m_emissiveBuffer->getObjectName(), glm::vec2{ 1280, 720 } *0.2f, { 0, 1 }, { 1, 0 });
     ImGui::Image((void*)m_normalMotionBuffer->getObjectName(), glm::vec2{ 1280, 720 } *0.2f, { 0, 1 }, { 1, 0 });
-    ImGui::Image((void*)m_specularBuffer->getObjectName(), glm::vec2{ 1280, 720 } *0.2f, { 0, 1 }, { 1, 0 });
     ImGui::End();
     
     ImGui::Begin("Render Passes", 0, ImGuiWindowFlags_AlwaysAutoResize);
@@ -160,19 +151,6 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
     return;
   }
 
-  // Set up gbuffer
-  auto gBufferBind = m_gBufferObject->bind();
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  glEnable(GL_DEPTH_TEST);
-  glDepthMask(GL_TRUE);
-  glDisable(GL_BLEND);
-  auto gBufferRes = m_gBufferObject->getDim();
-  glViewport(0, 0, gBufferRes.x, gBufferRes.y);
-  glEnable(GL_CULL_FACE);
-
-  auto origPos = trans->lastGlobalTransform.pos + (trans->thisGlobalTransform.pos - trans->lastGlobalTransform.pos)*interp;
-
   // Prepare camera coords
   auto camTransform = interpolate(trans->lastGlobalTransform, trans->thisGlobalTransform, interp);
   auto windowSize = m_window->getSize();
@@ -191,7 +169,10 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
     glm::vec3{ 1.0 / 16.0, 8.0 / 9.0, 0 },
   };
 
+  auto gBufferRes = m_gBufferObject->getDim();
   auto currentOffset = OFFSETS[m_frameIndex % 8] * 2 - 1.0f;
+  currentOffset.x /= gBufferRes.x;
+  currentOffset.y /= gBufferRes.y;
   currentOffset.z = 0;
 
   auto aaProj = glm::perspectiveFov<float>(glm::radians(cam->fov), (float)windowSize.x, (float)windowSize.y, cam->near, cam->far);
@@ -203,16 +184,15 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   glm::mat4 viewProjectionMatrix = glm::translate(currentOffset) * viewProjectionMatrixNoOffset;
   glm::mat4 prevViewProjectionMatrix = glm::translate(currentOffset) * aaProj * static_cast<glm::mat4>(glm::inverse(trans->lastRenderTransform));
 
+
   auto camPos = glm::vec3(camTransform * glm::vec4{ 0, 0, 0, 1 });
   auto camForward = glm::normalize(glm::vec3(camTransform * glm::vec4{ 0, 0, -1, 0 }));
   auto camRight = glm::normalize(glm::vec3(camTransform * glm::vec4{ 1, 0, 0, 0 }));
   auto camUp = glm::normalize(glm::vec3(camTransform * glm::vec4{ 0, 1, 0, 0 }));
 
-  CameraData camData { camPos, cam->fov, glm::vec4(camForward, 0.0f), glm::vec4(camRight, 0.0f), glm::vec4(camUp, 0.0f) };
+  CameraData camData { camPos, glm::radians(cam->fov), glm::vec4(camForward, 0.0f), glm::vec4(camRight, 0.0f), glm::vec4(camUp, 0.0f) };
   auto camDataBinding = m_camDataBuffer->bind();
   camDataBinding.setData(camData, GL_DYNAMIC_DRAW);
-
-  std::vector<Primitive> primitives;
 
   size_t totalPrimitiveCount = 0;
 
@@ -241,8 +221,8 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
           {
               auto drawPrimCount = idxBuffer->getIndexCount() / 3;
 
-              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuffer->getObjectName());
-              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, normBuffer->getObjectName());
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, posBuffer->getObjectName());
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, normBuffer->getObjectName());
               glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, idxBuffer->getObjectName());
               glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_primitiveBuffer->getObjectName());
 
@@ -268,9 +248,38 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
       auto compositingSize = m_primaryCompositingBuffer->getDim();
       boundRaycastProgram.compute(compositingSize.x / 8 + 1, compositingSize.y / 8 + 1);
   }
+
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
   // TXAA
   
+
+  {
+      // Set up gbuffer
+      auto gBufferBind = m_gBufferObject->bind();
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+      glEnable(GL_DEPTH_TEST);
+      glDepthMask(GL_TRUE);
+      glDisable(GL_BLEND);
+      glViewport(0, 0, gBufferRes.x, gBufferRes.y);
+      glEnable(GL_CULL_FACE);
+
+      auto boundProgram = m_motionVectorProgram->use();
+
+      for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
+          auto drawCall = pass.submittedDrawCallsOpaque[i];
+
+          boundProgram.setUniform("uFar", cam->far);
+          boundProgram.setUniform("uTime", (float)totalTime);
+          boundProgram.setUniform("uModelMatrix", drawCall.thisRenderTransform);
+          boundProgram.setUniform("uInverseModelMatrix", glm::inverse(drawCall.thisRenderTransform));
+          boundProgram.setUniform("uViewProjectionMatrix", viewProjectionMatrix);
+          boundProgram.setUniform("uPrevModelMatrix", drawCall.lastRenderTransform);
+          boundProgram.setUniform("uPrevViewProjectionMatrix", prevViewProjectionMatrix);
+          drawCall.geometry.vao->bind().draw();
+      }
+  }
+
   glDisable(GL_BLEND);
 
   // attribute-less rendering:
