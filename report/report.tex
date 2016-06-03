@@ -4,6 +4,7 @@
 \usepackage{tikz}
 \usepackage{svg}
 \usepackage{mathtools}
+\usepackage{tikz-3dplot}
 
 \tikzset{
   root/.style     = {draw=none},
@@ -47,7 +48,7 @@ Ray Tracing is next to rasterization the most widely used technique to generate 
 \subsection{Motivation}
 Ray tracing is a technique used to synthesize photo-realistic images from a 3D scene description. This is useful in many applications, from architectural visualization, games and movies to medical imaging. While the rendered images are of very high quality, the time needed to produce even one frame of animation is usually in the minutes or hours. Big animation studios like Disney or Pixar can afford super computers to render their movies\footnote{http://www.engadget.com/2014/10/18/disney-big-hero-6/}, but this is not feasible for smaller companies or individuals. Luckily, with the advent of general purpose computation on consumer grade GPUs most people have a small super computer sitting in their PCs. The new NVIDIA GTX 1080 for example can do about 9 TFLOP/s \footnote{https://twitter.com/nvidia/status/728771223522410496}, as many as the fastest super computer in the world in 2001\footnote{http://www.top500.org/}.
 
-Real time ray tracing is appealing, especially in the context of creative work, because it allows artist to preview changes to the scene immediately. This reduces turn around time. Where you previously had to change the position or color of a light and wait until the next day to review the difference you now can tweak scenes interactively. This leads to a lower turn around time on changes in visuals and thus higher quality results.
+Real time ray tracing is appealing, especially in the context of creative work, because it allows artists to preview changes to the scene immediately. Where you previously had to change the position or color of a light and wait until the next day to review the difference you now can tweak scenes interactively. This leads to a lower turn around time on changes in visuals and thus higher quality results.
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -106,13 +107,37 @@ I(x,x')= \overbrace{g(x,x')}^{\mathclap{\text{Geometry Term}}}
                   \overbrace{I(x',x'') }^{\mathclap{\text{Incoming light}}} dx''}
          }_{\mathclap{\text{Light reflected at $x'$ in direction $\overrightarrow{x'x}$}}} ]
 \end{equation}
-It describes the light transport between two points $x$ and $x'$ as a combination of emitted and reflected light at $x'$. The geometry factor describes the amount of light that actually arrives at $x$ (e.g. $g(x,x') = 0$ there is an object between the two points). To compute the reflected light we need to integrate over all directions in the hemisphere $S$ above point $x'$. 
+It describes the light transport between two points $x$ and $x'$ as a combination of emitted and reflected light at $x'$. The geometry term describes the amount of light that actually arrives at $x$ (e.g. $g(x,x') = 0$ if there is an object between the two points). To compute the reflected light we need to integrate over all directions in the hemisphere $S$ above point $x'$. 
 The main difference between rendering algorithms is how they approach the evaluation of this integral. It cannot be evaluated analytically for scenes which are even remotely interesting, but the formulation of the rendering problem as an integral equation allows us to employ methods from calculus to devise new algorithms.
+
+
+\begin{figure}[htb!]
+  \begin{centering}
+    \tdplotsetmaincoords{0}{0}
+    \begin{tikzpicture}[tdplot_main_coords]
+      \draw[thick,-] (-4,0) -- (4,0) node[anchor=north east]{Surface};
+      \draw[thick,->] (0,0) -- (0,3) node[anchor=north west]{$\vec{n}$};
+      \draw[thick,->] (0,0) -- (-3.5,3.0) node[anchor=south east]{$\overrightarrow{x'x}$};
+      \tdplotdefinepoints(0,0,0)(0,2,0)(-3.5,3.0,0);
+      \tdplotdrawpolytopearc[thin,<->]{1.25}{anchor=south}{$\omega_0$};
+      \draw[thick,dashed] (0,0) -- (3.5,1.5) node[anchor=south west]{$\overrightarrow{x''x'}$};
+      \tdplotdefinepoints(0,0,0)(0,2,0)(3.5,1.5,0);
+      \tdplotdrawpolytopearc[thin,<->]{1.5}{anchor=south}{$\omega_1$};
+      \draw[thin, densely dotted] (0,0) -- (1, 0) arc (0:180:1cm) -- cycle;
+      \draw (1,0) node[below]{$S$};
+      \draw (0,0) node[below]{$x'$};
+    \end{tikzpicture}\par
+  \end{centering}
+  \caption{Geometry of light transport as described in \eqref{eq:rendering-equation}}
+  \label{fig:light-transport}
+\end{figure}
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Second Section
 \section{Overview over the path tracing algorithm} \label{path-tracing}
-Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which for a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The value 
+Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The value 
 
 % Path integral formulation, monte carlo methods
 
