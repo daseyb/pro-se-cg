@@ -292,6 +292,8 @@ f_t(C_{t}(p)) = \alpha s_t(p) + (1-\alpha)(f_{t-1}(C_{t}(p) + M_t(p)))
 The smoothing factor $\alpha$ presents a trade off between responsiveness (high $\alpha$) and variance reduction (low $\alpha$). It can either be set statically or be determined dynamically by some heuristic. A rejected history sample corresponds to $\alpha = 1$. 
 
 \section{Adapting the described algorithms to the GPU} \label{gpu-adapting}
+The naive path tracing algorithm is easily adapted to the GPU. The massively parallel architecture maps nicely to computing many independent path samples. In my implementation I start one compute shader thread for each pixel in the output image. The main issue with porting ray tracing algorithms in general is that acceleration structure form trees, which don't map nicely to the linear, pointer restricted memory model of a GPU. Traversing a tree in the intuitive, recursive, way requires a stack, but since we are traversing... Especially building such data structure on the GPU is difficult, since parallelizing the construction process is often non-trivial if not impossible.
+
 \subsection{Accessing the GPU outside of the rasterization pipeline}
 Compute shaders
 % Easier integration with OpenGL (needed for TXAA)
