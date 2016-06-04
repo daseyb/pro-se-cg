@@ -10,7 +10,10 @@
 \usepackage{pstricks-add}
 \usepackage{graphicx}
 \usepackage{pspicture}
-
+\usepackage{scrextend}
+\usepackage{pgfplots}
+\usepgfplotslibrary{polar}
+\usetikzlibrary{pgfplots.polar}
 \tikzset{
   root/.style     = {draw=none},
   leaf/.style     = {draw=none},
@@ -124,7 +127,7 @@ The main difference between rendering algorithms is how they approach the evalua
       \draw[thick,->] (0,0) -- (-3.5,3.0) node[anchor=south east]{$\overrightarrow{x'x}$};
       \tdplotdefinepoints(0,0,0)(0,2,0)(-3.5,3.0,0);
       \tdplotdrawpolytopearc[thin,<->]{1.25}{anchor=south}{$\omega_0$};
-      \draw[thick,dashed] (0,0) -- (3.5,1.5) node[anchor=south west]{$\overrightarrow{x''x'}$};
+      \draw[thick,dashed,-<] (0,0) -- (3.5,1.5) node[anchor=south west]{$\overrightarrow{x''x'}$};
       \tdplotdefinepoints(0,0,0)(0,2,0)(3.5,1.5,0);
       \tdplotdrawpolytopearc[thin,<->]{1.5}{anchor=south}{$\omega_1$};
       \draw[thin, densely dotted, <-] (0,0) -- (1, 0) arc (0:180:1cm) -- cycle;
@@ -139,7 +142,7 @@ The main difference between rendering algorithms is how they approach the evalua
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Second Section
 \section{Overview over the path tracing algorithm} \label{path-tracing}
-Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The value 
+Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". \cite{veach1997robust} Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The final value of a path sample is calculated using Equation \eqref{eq:rendering-equation}, recursively evaluating it for $x_0$ to $x_n$. 
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -148,6 +151,8 @@ Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-eq
   \caption{A light path through a scene.}
   \label{fig:light-path}
 \end{figure}
+
+
 
 % Path integral formulation, monte carlo methods
 
@@ -158,13 +163,112 @@ Going logarithmic!
 \subsection{Volume Hierarchies}
 
 \section{Reducing Noise} \label{noise}
-All stochastic sampling methods 
-\subsection{Gradient-Domain Path Tracing}
-Do I really want to go here? \cite{Kettunen2015sg} I'll implement everything else first and see if I have time left.
+For classical path tracing to converge to a stable solution we need to sample thousands of paths for each pixel. Since sampling a path requires intersection tests which are already the bottleneck of the pipeline this is not something we can afford under the constraints of real time rendering. The lack of samples results in a high variance between pixels which is expressed as noise. While uniform noise is one of the more pleasant artefacts in computer graphics it still impacts the perceived quality of rendered images. [TODO: FIND STUDY]
+In the following I will describe two approaches to reduce variance and improve image quality without sampling more paths.
+\begin{itemize}
+\item \textbf{Reducing the variance} of the sampled paths by carefully choosing the sampled distribution in our Monte Carlo integrator.
+\item \textbf{Reusing samples} from previous frames and thus reducing variance by having a larger number of samples for each pixel.
+\end{itemize}
+
+\subsection{Importance Sampling}
+In his thesis Eric Veach presents a number of ways to reduce variance in Monte Carlo algorithms. \cite[45--70]{veach1997robust} I will focus on importance sampling \cite[47--48]{veach1997robust}, because it is easy to integrate into existing algorithms. Other techniques such as Bidirectional Path Tracing or Metropolis Light Transport produce better results, but are more complicated to implement correctly, especially on the GPU.
+
+The idea of importance sampling is to choose a function $g$ that is as similar as possible to the function $f$ we want to evaluate and which can be sampled efficiently. A common technique is to approximate or disregard factors in f until we arrive at a function which can be integrated analytically. In the case of path tracing $f = p(x,x',x'')I(x',x'')$ where $p$ is a BRDF. The factor of $f$ that makes it especially hard to integrate analytically or approximate is $I(x',x'')$ since $I$ is defined recursively (see Equation \eqref{eq:rendering-equation}). If we disregard $I(x',x'')$ we are left with $p(x,x',x'')$ which is much easier to reason about. While not all BRDFs can be solved analytically \cite{Montes2012} they are usually designed to be sampled with a given probability distribution, which gives us the approximation $g$ we were looking for. 
+
+\begin{figure}[htb!]
+  \begin{centering}
+  \begin{tikzpicture}
+   \begin{polaraxis}[xmin=0,xmax=180,ymax=1,
+    ytick align=outside,
+    yticklabel style={
+        anchor=north,
+        yshift=-2*\pgfkeysvalueof{/pgfplots/major tick length}
+    }]
+	\addplot+[mark=f,domain=0:180,samples=600] 
+		{ (sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75 }; 
+    \addplot+[mark=g,domain=0:180,samples=600] 
+		{(sin(2*x)*cos(2*x) + cos(0.3*x + 1))/1.75 };
+    \addplot+[dashed, polar comb,domain=0:180, samples=6,black,opacity=0.75,mark=x]
+	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
+	\addplot+[dashed, polar comb,domain=10:45, samples=4,black,opacity=0.75,mark=x]
+	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
+	\addplot+[dashed, polar comb,domain=15:40, samples=3,black,opacity=0.75,mark=x]
+	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
+	\addplot+[dashed, polar comb,domain=20:35, samples=2,black,opacity=0.75,mark=x]
+	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
+	\addplot+[dashed, polar comb,domain=100:130, samples=4,black,opacity=0.75,mark=x]
+	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
+	\addplot+[dashed, polar comb,domain=105:125, samples=3,black,opacity=0.75,mark=x]
+	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
+	\legend{$f$, $g$}
+	\end{polaraxis}
+  \end{tikzpicture}\par
+  \end{centering}
+  \caption{Approximating a complicated function $f$ by a simpler function $g$ and sampling $f$ based on the probability distribution of $g$. Note how we are more likely to sample the $f$ in directions where it has a large value.}
+  \label{fig:importance-sampling}
+\end{figure}
+
+
+The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using the distribution in Figure \ref{fig:cosine-dist} we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. [TODO: REFERENCE]
+
+To keep the expected value of the Monte Carlo integration the same we need to account for the fact that we are no longer sampling $f$ uniformly. This is done by simply dividing the sampled value by the probability of choosing that value since
+
+\begin{equation}
+\frac{1}{N} \sum_{i=1}^{N} f(X_i), X \sim U \rightarrow \frac{1}{N} \sum_{i=1}^{N} \frac{f(X_i)}{p(X_i)}, X \sim p
+\end{equation}
+
+\begin{figure}[htb!]
+  \begin{centering}
+  \begin{tikzpicture}
+   \begin{polaraxis}[xmin=0,xmax=180,ymax=1,
+    ytick align=outside,
+    yticklabel style={
+        anchor=north,
+        yshift=-2*\pgfkeysvalueof{/pgfplots/major tick length}
+    }]
+	\addplot+[mark=f,domain=0:180,samples=600] 
+		{ cos(x-90)};
+	\end{polaraxis}
+  \end{tikzpicture}\par
+  \end{centering}
+  \caption{Distribution we want to sample to account for Lambert's cosine law}
+  \label{fig:cosine-dist}
+\end{figure}
+
 \subsection{Temporal Supersampling}
+Ray tracing research has mostly focused on the previous area for variance reduction since the common use case is rendering still images.
+In real time rendering we are generating an output image 30-60 times per second. Usually the changes between frames are small (i.e. we can assume temporal coherency). Classical rasterization based rendering pipelines re-render the whole image every frame and disregard previous results completely. This has established itself since samples per pixel tended to be cheap and the complexity of reusing samples was not worth the potential quality improvements.
+In recent years this no longer holds true. The introduction of expensive physically based shading computations, even in real time applications, made per pixel sampling a performance issue. Previously issues like geometry and shading aliasing could be solved by sampling the scene multiple times per pixel, but this is not feasible any more.
 
+The idea of temporal supersampling is to spread the cost of calculating samples over time. If we store a number of samples from previous frames some of these samples are likely to be relevant to the current frame due to temporal coherency. If we can figure out which samples are relevant and which aren't we can get more samples for the current frame for the cost of retrieving them from a buffer. This is much cheaper than computing them from scratch. [TODO: Timings]
+There are three steps to temporal supersampling
+\begin{enumerate}
+\item \textbf{Reprojection}: Figure out the most relevant sample position in our history data and sample the history buffer at that position.
+\item \textbf{Rejection}: Reject invalid history samples based on some rejection strategy.
+\item \textbf{Combination}: Combine the history samples with the samples for the current frame.
+\end{enumerate}
 
-% Reference back to monte carlo, main issue of path tracing is variance expressed as noise, we need more samples. Temporal Supersampling provides these.
+\subsubsection{Reprojection}
+For each visible surface point $p$ in Frame $t$ we want to determine the it's clip space position in Frame $t-1$. We assume that this is where the most relevant data for this point is stored in the history buffer. Two determine this position we need to store the previous frames projection and view matrix $P_{t-1}$ and $V_{t-1}$ for the camera and the previous model matrices $M^{i}_{t-1}$ for each object $O_i$. 
+With that information we can compute the previous clip space location of $p$ as $C_{t-1}(p) = P * V_{t-1} * M^{i}_{t-1} * p$. We usually store a buffer of offsets $M_t(p) = C_{t-1}(p) - C_{t}(p)$ called "motion vectors".
+This allows temporal supersampling to be implemented as a post processing step.
+
+\subsubsection{Rejection}
+The assumption we made during reprojection breaks down in two cases: The previous clip space position is off screen (which means $p$ was not visible in the last frame because it was outside the camera frustum) or the depth stored in the history buffer does not match the computed depth (which means $p$ was occluded by some other surface). We need to detect these cases and reject the samples. There are also other, color based, rejection strategies like neighbourhood clamping [TODO: Ref UE4 talk]. Those do not work well with path tracing since they assume low variance on smooth surfaces which the samples from path tracing don't provide.
+
+\subsubsection{Combination}
+Once we have identified a valid history sample we need to combine it with the new samples from the current frame. A common approach to this is to use a recursive exponential smoothing filter \cite{Yang:2009} 
+
+\begin{equation}
+f_t(C_{t}(p)) = \alpha s_t(p) + (1-\alpha)(f_{t-1}(C_{t}(p) + M_t(p)))
+\end{equation}
+\begin{labeling}{$f_t$}
+\item [$f_t$] Value of the frame/history buffer in frame t.
+\item [$\alpha$] Smoothing factor.
+\item [$s_t$] New sample value.
+\end{labeling}
+
+The smoothing factor $\alpha$ presents a trade off between responsiveness (high $\alpha$) and variance reduction (low $\alpha$). It can either be set statically or be determined dynamically by some heuristic. A rejected history sample corresponds to $\alpha = 1$. 
 
 \section{Adapting the described algorithms to the GPU} \label{gpu-adapting}
 \subsection{Accessing the GPU outside of the rasterization pipeline}

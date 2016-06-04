@@ -1,2 +1,7 @@
-polygon(0,0,1)(1,0,0)(0,1,0)
-line(-1,-1,-1)(2,2,2)
+def p1 (1,0,0) def p2 (0,0.5,0) def p3 (-0.5,-1,2)
+def O (0,0,0)
+def N unit( ((p3) - (p2)) * ((p1) - (p2)) )
+def n1 ((p1)-(O) + (p2)-(O) + (p3)-(O)) / 3 + (O)
+def n2 (n1)+[N]
+polygon(p1)(p2)(p3)
+line[arrows=*->](n1)(n2)

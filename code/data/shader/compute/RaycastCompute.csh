@@ -18,11 +18,12 @@ uniform uint uSeed;
 uniform int uMaxBounces = 2;
 
 const vec3 lightPos = vec3(0, 8, 10);
-const vec3 dielecSpec = vec3(0.02);
+const vec3 dielecSpec = vec3(0.2);
 
-const Material[] materials = Material[]( Material( vec3(1, 1, 1), dielecSpec, 0.7, 0.0, 1.0) );
+const Material[] materials = Material[]( Material( vec3(1, 1, 1), dielecSpec, 0.3, 0.0, 1.0) );
 const SphereLight[] lights = SphereLight[](
-  SphereLight( vec3(0, 8, 8), .1, vec3(0, 1, 1) )
+  SphereLight( vec3(0, 8, 8), 2.0, vec3(0.3, 0.4, 0.6) ),
+  SphereLight( vec3(-8, 8, 8), 1.0, vec3(0.9, 0.1, 0.0) )
 );
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
@@ -114,6 +115,20 @@ vec3 directionCosTheta(vec3 normal, inout uint random) {
   return xDir * x + yDir * y + z * normal;
 }
 
+vec3 directionUniformSphere(inout uint random) {
+  float u1 = uniformFloat(0, 1, random);
+  float phi = uniformFloat(0, 2 * PI, random);
+  float f = sqrt(1 - u1 * u1);
+
+  float x = f * cos(phi);
+  float y = f * sin(phi);
+  float z = u1;
+
+  vec3 dir = vec3(x, y, z);
+
+  return dir;
+}
+
 vec3 directionUniform(vec3 normal, inout uint random) {
   float u1 = uniformFloat(0, 1, random);
   float phi = uniformFloat(0, 2 * PI, random);
@@ -166,8 +181,9 @@ float GGX(vec3 N, vec3 V, vec3 L, float roughness, float F0)
     // '/ dotNV' - canceled by G
     return D * F * G / 4.0 / dotNL;
 }
+
 // GGX for Shading, includes cos(theta), no div by PI
-float shadingGGX(vec3 N, vec3 V, vec3 L, float roughness, float F0)
+vec3 shadingGGX(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0)
 {
     // see http://www.filmicworlds.com/2014/04/21/optimizing-ggx-shaders-with-dotlh/
     vec3 H = normalize(V + L);
@@ -186,9 +202,9 @@ float shadingGGX(vec3 N, vec3 V, vec3 L, float roughness, float F0)
     // NO pi because BRDF -> lighting
 
     // F (Fresnel term)
-    float F_a = 1.0;
-    float F_b = pow(1.0 - dotLH, 5); // manually?
-    float F = mix(F_b, F_a, F0);
+    vec3 F_a = vec3(1.0);
+    vec3 F_b = vec3(pow(1.0 - dotLH, 5)); // manually?
+    vec3 F = mix(F_b, F_a, F0);
 
     // G (remapped hotness, see Unreal Shading)
     float k = (alpha + 2 * roughness + 1) / 8.0;
@@ -198,7 +214,7 @@ float shadingGGX(vec3 N, vec3 V, vec3 L, float roughness, float F0)
 
     // '/ dotLN' - canceled by lambert
     // '/ dotNV' - canceled by G
-    return max(0.0, min(10, D * F * G / 4.0));
+    return max(vec3(0.0), min(vec3(10), D * F * G / 4.0));
 }
 
 
@@ -230,19 +246,19 @@ bool intersect(in Ray r, float maxDist, out HitInfo hit) {
 
 // direct illu at a given point
 // inDir points TOWARDS the surface
-float directIllumination(vec3 pos, vec3 inDir, vec3 N, vec3 colorFilter, Material material) {
+vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, uint random) {
   HitInfo intr;
-  float color = 0;
+  vec3 color = vec3(0);
 
-  float specularColor = dot(material.specularColor, colorFilter);
-  float diffuseColor = dot(material.diffuseColor, colorFilter) * (1 - specularColor);
+  vec3 specularColor = material.specularColor;
+  vec3 diffuseColor = material.diffuseColor * (vec3(1) - specularColor);
 
   int lightCnt = lights.length();
   for (int i = 0; i < lightCnt; ++i) {
     SphereLight l = lights[i];
 
     vec3 V = -inDir;
-    vec3 L = l.center - pos;
+    vec3 L = l.center - pos + directionUniformSphere(random) * l.radius;
     float lightDis = length(L);
     L /= lightDis;
     
@@ -254,7 +270,7 @@ float directIllumination(vec3 pos, vec3 inDir, vec3 N, vec3 colorFilter, Materia
       continue;
 
     // diffuse
-    color += max(0.0, dot(L, N)) * dot(l.color, colorFilter) * diffuseColor;
+    color += max(0.0, dot(L, N)) * l.color* diffuseColor;
 
     // specular
     color += shadingGGX(N, V, L, material.roughness, specularColor);
@@ -265,25 +281,24 @@ float directIllumination(vec3 pos, vec3 inDir, vec3 N, vec3 colorFilter, Materia
 
 // =============================================================================
 // tracing
-float trace(Ray r, vec3 colorFilter, inout uint random) {
+vec3 trace(Ray r, inout uint random) {
   HitInfo intr;
-  int bounces = 2;
+  int bounces = 3;
 
   vec3 pos = r.pos;
   vec3 dir = r.dir;
-  float weight = 1;
+  vec3 weight = vec3(1);
+  
+  if (!intersect(r, MAX_DISTANCE, intr))
+      return vec3(0);
 
   for (int b = 0; b < bounces; ++b) {
     r.pos = pos;
     r.dir = dir;
     
-    // step 1: intersect with scene
-    if (!intersect(r, MAX_DISTANCE, intr))
-      return 0; // TODO: cubemap
-
     // step 2: russian roulette
-    float rhoS = dot(colorFilter, intr.material.specularColor);
-    float rhoD = dot(colorFilter, intr.material.diffuseColor);
+    float rhoS = dot(vec3(1,1,1), intr.material.specularColor);
+    float rhoD = dot(vec3(1,1,1), intr.material.diffuseColor);
     float rhoR = intr.material.refractiveness;
 
     // REFLECT glossy
@@ -311,13 +326,17 @@ float trace(Ray r, vec3 colorFilter, inout uint random) {
     // EMIT
     else
     {
-      float color = directIllumination(intr.pos, dir, intr.norm, colorFilter, intr.material);
-      return weight * color / (1 - rhoS) / (1 - rhoD) / (1 - rhoR);
+      vec3 color = directIllumination(intr.pos, dir, intr.norm, intr.material, random);
+      weight *= color / (1 - rhoS) / (1 - rhoD) / (1 - rhoR);
     }
+    
+    // step 1: intersect with scene
+    if (!intersect(r, MAX_DISTANCE, intr))
+      break; // TODO: cubemap
   }
 
   // last bounce
-  float color = directIllumination(intr.pos, dir, intr.norm, colorFilter, intr.material);
+  vec3 color = directIllumination(intr.pos, dir, intr.norm, intr.material, random);
   return weight * color;
 }
 
@@ -330,19 +349,18 @@ void main() {
   
   if(storePos.x >= imgSize.x || storePos.y >= imgSize.y) return;
   
-  Ray r = generateRay(storePos.x + pixelOffset.x, storePos.y + pixelOffset.y, imgSize.x, imgSize.y);
+  vec2 offset = uniformVec2(vec2(-0.5f), vec2(0.5f), random); 
+  
+  Ray r = generateRay(storePos.x + offset.x, storePos.y + offset.y, imgSize.x, imgSize.y);
   
   Payload pl;
   pl.col = vec4(0, 0, 0, 1);
   
-  for(int i = 0; i < 2; i++) {
-    pl.col.r += trace(r, vec3(1,0,0), random);
-    pl.col.g += trace(r, vec3(0,1,0), random);
-    pl.col.b += trace(r, vec3(0,0,1), random);
+  for(int i = 0; i < 5; i++) {
+    pl.col.rgb += trace(r, random);
   }
-  pl.col*=0.5;
   
-  pl.col = clamp(pl.col, vec4(0), vec4(1));
+  pl.col.rgb *= 1.0/5;
   
   imageStore(backBuffer, storePos, pl.col);
  }

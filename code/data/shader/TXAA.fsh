@@ -22,7 +22,7 @@ const vec2 SAMPLE_OFFSETS[4] = vec2[] (
 
 void main()
 {
-  vec2 motion = texture(uSamplerNormalMotion, vTexCoord).zw;
+  vec2 motion =  texture(uSamplerNormalMotion, vTexCoord).zw;
   vec2 prevMotion = texture(uSamplerNormalMotion, vTexCoord - motion).zw;
   float depth = texture(uSamplerDepth, vTexCoord).x;
   
@@ -37,9 +37,15 @@ void main()
   
   float factor = 0.9; //0.5 * max(0, 1.0-30.0 * sqrt(length(motion) - length(prevMotion)));
   
-  vec4 history = texture(uSamplerHistory, vTexCoord - motion);  
   vec4 current = texture(uSamplerColor, vTexCoord);
+    
+  vec2 prevSamplePos = vTexCoord - motion;
+  if(min(prevSamplePos.x, prevSamplePos.y) < 0 || max(prevSamplePos.x, prevSamplePos.y) > 1) {
+      oColor = current;
+      return;
+  }
   
+  vec4 history = texture(uSamplerHistory, vTexCoord - motion);  
 
   vec4 minNeighbour = current;
   vec4 maxNeighbour = current;
@@ -52,7 +58,7 @@ void main()
     }
   }
   
-  history = clamp(history, minNeighbour, maxNeighbour);
+  //history = clamp(history, minNeighbour, maxNeighbour);
   
   oColor = mix(current, history, factor);
   oColor.a = clamp(oColor.a, 0, 1);
