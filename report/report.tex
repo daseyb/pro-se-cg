@@ -14,6 +14,7 @@
 \usepackage{pgfplots}
 \usepgfplotslibrary{polar}
 \usetikzlibrary{pgfplots.polar}
+
 \tikzset{
   root/.style     = {draw=none},
   leaf/.style     = {draw=none},
@@ -152,12 +153,13 @@ Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-eq
   \label{fig:light-path}
 \end{figure}
 
-
-
 % Path integral formulation, monte carlo methods
 
-\section{Spacial partitioning and acceleration structures} \label{acceleration}
-Going logarithmic!
+\section{Acceleration Structures} \label{acceleration}
+Intersection tests are by far the most expensive part of any ray tracing algorithm. \cite[7]{Whitted:1980} This is true even for simple scenes, but becomes a major performance issue in large scenes. Ideally we would like the performance of a ray tracer to be independent from scene complexity, but this is no possible when using a classical polygon based scene representation.
+Rasterization renderers usually perform a culling operation to exclude objects which are not in view of the camera from being rendered. Unfortunately that is not helpful for path tracing since secondary rays can require intersection tests with off-screen objects.
+The naive implementation of a ray cast performs an intersection test with every primitive in the scene. Hence it scales linearly with the number of primitives. Acceleration structures which partition either objects or space allow us to do better. They generally reduce the time complexity of a ray cast from $O(n)$ to $O(\log n)$ in the number of primitives. In the following I will discuss various commonly used acceleration structures. The main trade off is usually construction time vs. ray tracing performance. Generally, structures which offer better ray tracing performance take longer to set up and are mostly suited for static scenes, while structures which trade in some ray tracing performance for shorter set up times are better suited for real time applications with dynamic scenes.
+
 \subsection{BSP and KD-Trees}
 
 \subsection{Volume Hierarchies}
@@ -173,7 +175,7 @@ In the following I will describe two approaches to reduce variance and improve i
 \subsection{Importance Sampling}
 In his thesis Eric Veach presents a number of ways to reduce variance in Monte Carlo algorithms. \cite[45--70]{veach1997robust} I will focus on importance sampling \cite[47--48]{veach1997robust}, because it is easy to integrate into existing algorithms. Other techniques such as Bidirectional Path Tracing or Metropolis Light Transport produce better results, but are more complicated to implement correctly, especially on the GPU.
 
-The idea of importance sampling is to choose a function $g$ that is as similar as possible to the function $f$ we want to evaluate and which can be sampled efficiently. A common technique is to approximate or disregard factors in f until we arrive at a function which can be integrated analytically. In the case of path tracing $f = p(x,x',x'')I(x',x'')$ where $p$ is a BRDF. The factor of $f$ that makes it especially hard to integrate analytically or approximate is $I(x',x'')$ since $I$ is defined recursively (see Equation \eqref{eq:rendering-equation}). If we disregard $I(x',x'')$ we are left with $p(x,x',x'')$ which is much easier to reason about. While not all BRDFs can be solved analytically \cite{Montes2012} they are usually designed to be sampled with a given probability distribution, which gives us the approximation $g$ we were looking for. 
+The idea of importance sampling is to concentrate our efforts on parts of the integral in Equation \eqref{eq:rendering-equation} which have a large value. That is, we would rather sample paths which contribute a lot to the image than paths which barely do. To achieve this we choose a function $g$ that is as similar as possible to the function $f$ we want to evaluate and which can be sampled efficiently. A common technique is to approximate or disregard factors in f until we arrive at a function which can be integrated analytically. In the case of path tracing $f = p(x,x',x'')I(x',x'')$ where $p$ is a BRDF. The factor of $f$ that makes it especially hard to integrate analytically or approximate is $I(x',x'')$ since $I$ is defined recursively (see Equation \eqref{eq:rendering-equation}). If we disregard $I(x',x'')$ we are left with $p(x,x',x'')$ which is much easier to reason about. While not all BRDFs can be solved analytically \cite{Montes2012} they are usually designed to be sampled with a given probability distribution, which gives us the approximation $g$ we were looking for. 
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -185,37 +187,35 @@ The idea of importance sampling is to choose a function $g$ that is as similar a
         yshift=-2*\pgfkeysvalueof{/pgfplots/major tick length}
     }]
 	\addplot+[mark=f,domain=0:180,samples=600] 
-		{ (sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75 }; 
+		{cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75 }; 
     \addplot+[mark=g,domain=0:180,samples=600] 
-		{(sin(2*x)*cos(2*x) + cos(0.3*x + 1))/1.75 };
+		{cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1))/1.75 };
     \addplot+[dashed, polar comb,domain=0:180, samples=6,black,opacity=0.75,mark=x]
-	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
-	\addplot+[dashed, polar comb,domain=10:45, samples=4,black,opacity=0.75,mark=x]
-	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
-	\addplot+[dashed, polar comb,domain=15:40, samples=3,black,opacity=0.75,mark=x]
-	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
-	\addplot+[dashed, polar comb,domain=20:35, samples=2,black,opacity=0.75,mark=x]
-	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
+	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
+	\addplot+[dashed, polar comb,domain=10:45, samples=3,black,opacity=0.75,mark=x]
+	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
 	\addplot+[dashed, polar comb,domain=100:130, samples=4,black,opacity=0.75,mark=x]
-	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
+	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
 	\addplot+[dashed, polar comb,domain=105:125, samples=3,black,opacity=0.75,mark=x]
-	    {(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
+	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
 	\legend{$f$, $g$}
 	\end{polaraxis}
   \end{tikzpicture}\par
   \end{centering}
-  \caption{Approximating a complicated function $f$ by a simpler function $g$ and sampling $f$ based on the probability distribution of $g$. Note how we are more likely to sample the $f$ in directions where it has a large value.}
+  \caption{Approximating a complicated function $f$ by a simpler function $g$ and sampling $f$ based on the probability distribution of $g$. Note how we are more likely to sample the $f$ in directions where it has a large value.\protect\footnotemark}
   \label{fig:importance-sampling}
 \end{figure}
-
+\footnotetext{$f$ and $g$ are chosen for illustration purposes only and are not supposed to represent an actual BRDF.}
 
 The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using the distribution in Figure \ref{fig:cosine-dist} we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. [TODO: REFERENCE]
 
 To keep the expected value of the Monte Carlo integration the same we need to account for the fact that we are no longer sampling $f$ uniformly. This is done by simply dividing the sampled value by the probability of choosing that value since
 
 \begin{equation}
-\frac{1}{N} \sum_{i=1}^{N} f(X_i), X \sim U \rightarrow \frac{1}{N} \sum_{i=1}^{N} \frac{f(X_i)}{p(X_i)}, X \sim p
+E[\frac{1}{N} \sum_{i=1}^{N} f(X_i)], X \sim U = E[\frac{1}{N} \sum_{i=1}^{N} \frac{f(X_i)}{p(X_i)}], X \sim p
 \end{equation}
+
+There is a lot of value in finding a good approximation to a BRDF since sampling even relatively complex approximations is very cheap compared intersection tests. Better importance sampling directly correlates with less variance and thus reduces the number of needed path samples per pixel dramatically.
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -226,13 +226,34 @@ To keep the expected value of the Monte Carlo integration the same we need to ac
         anchor=north,
         yshift=-2*\pgfkeysvalueof{/pgfplots/major tick length}
     }]
+    \addplot+[mark=f,domain=0:180,samples=600] 
+		{cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75 }; 
 	\addplot+[mark=f,domain=0:180,samples=600] 
 		{ cos(x-90)};
+		
+    \addplot+[dashed, polar comb,domain=10:170, samples=6,black,opacity=0.75,mark=x]
+	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
+	\addplot+[dashed, polar comb,domain=25:135, samples=5,black,opacity=0.75,mark=x]
+	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
+	\addplot+[dashed, polar comb,domain=50:125, samples=2,black,opacity=0.75,mark=x]
+	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
+	\addplot+[dashed, polar comb,domain=75:115, samples=4,black,opacity=0.75,mark=x]
+	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
+    \legend{$f$, $g$}
 	\end{polaraxis}
   \end{tikzpicture}\par
   \end{centering}
-  \caption{Distribution we want to sample to account for Lambert's cosine law}
+  \caption{Sampling a distribution $g$ which only accounts for Lambert's cosine law}
   \label{fig:cosine-dist}
+\end{figure}
+
+\begin{figure}[htb!]
+
+  \centering
+  \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/50_spp_cosine_weighted.png}
+  \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/50_spp_uniform.png}
+  \caption{Left: Cosine Weighted Sampling, Right: Uniform Sampling TODO: GET CORRECT RENDERS OF BOTH CASES}
+  \label{fig:rendering-cos-weighted}
 \end{figure}
 
 \subsection{Temporal Supersampling}
