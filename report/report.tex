@@ -57,7 +57,7 @@ Ray Tracing is next to rasterization the most widely used technique to generate 
 \subsection{Motivation}
 Ray tracing is a technique used to synthesize photo-realistic images from a 3D scene description. This is useful in many applications, from architectural visualization, games and movies to medical imaging. While the rendered images are of very high quality, the time needed to produce even one frame of animation is usually in the minutes or hours. Big animation studios like Disney or Pixar can afford super computers to render their movies\footnote{http://www.engadget.com/2014/10/18/disney-big-hero-6/}, but this is not feasible for smaller companies or individuals. Luckily, with the advent of general purpose computation on consumer grade GPUs most people have a small super computer sitting in their PCs. The new NVIDIA GTX 1080 for example can do about 9 TFLOP/s \footnote{https://twitter.com/nvidia/status/728771223522410496}, as many as the fastest super computer in the world in 2001\footnote{http://www.top500.org/}.
 
-Real time ray tracing is appealing, especially in the context of creative work, because it allows artists to preview changes to the scene immediately. Where you previously had to change the position or color of a light and wait until the next day to review the difference you now can tweak scenes interactively. This leads to a lower turn around time on changes in visuals and thus higher quality results.
+Real time ray tracing is appealing, especially in the context of creative work, because it allows artists to preview changes to the scene immediately. Where you previously had to change the position or color of a light and wait until the next day to review the difference you can now tweak scenes interactively. This leads to a lower turn around time on changes in visuals and thus higher quality results.
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -70,7 +70,7 @@ Real time ray tracing is appealing, especially in the context of creative work, 
 In this report I will:
 \begin{itemize}
 \item Describe a state of the art ray tracing algorithm. (Section \ref{path-tracing})
-\item Introduce techniques to reduce the time spent on ray-scene intersections which usually dominate the performance of ray tracing \cite{Whitted:1980}. (Section \ref{acceleration})
+\item Introduce techniques to reduce the time spent on ray-scene intersections. (Section \ref{acceleration})
 \item Explain how to use the fact that the algorithm is running at interactive frame rates to improve image quality. (Section \ref{noise})
 \item Present an implementation. (Section \ref{gpu-adapting})
 \end{itemize}
@@ -79,12 +79,7 @@ In this report I will:
 \subsection{A short history of ray tracing}
 The technique of tracing rays through a scene consisting of primitives and media has been known to the computational physics community for a long time. There it is mostly used to simulate the propagation of waves (e.g. shock waves of an earthquake) through a heterogeneous medium (e.g. the interior of the earth). \cite{GJI:GJI93}
 
-It was first described in relation to computer graphics by Arthur Appel in 1968. At the time the common method to visualize three dimensional scenes was to synthesize two dimensional line and point drawings. Appel recognized the importance of shading and shadow casting in conveying shape and spatial relations. In his paper "Some techniques for shading machine renderings of solids" he proposes a method to realize this shading by casting rays originating from the viewers' position through each pixel on the viewing plane and calculating the first point of intersection with the scene. To determine shading he casts a second ray from this intersection point to the light source. Noteworthy is that he recognized Lambert's cosine law as the basis of a physically correct model for diffuse shading of surfaces lit by a point light.
-\begin{equation}
-I = S (Cosine L)/D^{2}
-\end{equation}
-Where $I$ is the final illumination intensity, $S$ the intensity of the light source, $L$ the angle between the surface normal and the direction to the light source and $D$ the distance to the light source.
-Appel's technique was very compute intensive for its time, but already illustrated the power of ray tracing to generate realistic images using a relatively simple algorithm. \cite{Appel68}
+It was first described in relation to computer graphics by Arthur Appel in 1968. At the time the common method to visualize three dimensional scenes was to synthesize two dimensional line and point drawings. Appel recognized the importance of shading and shadow casting in conveying shape and spatial relations. In his paper "Some techniques for shading machine renderings of solids" he proposes a method to realize this shading by casting rays originating from the viewers' position through each pixel on the viewing plane and calculating the first point of intersection with the scene. To determine shading he casts a second ray from this intersection point to the light source. Appel's technique was very compute intensive for its time, but already illustrated the power of ray tracing to generate realistic images using a relatively simple algorithm. \cite{Appel68}
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -153,16 +148,21 @@ Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-eq
   \label{fig:light-path}
 \end{figure}
 
-% Path integral formulation, monte carlo methods
+In classical path tracing paths are traced from the camera to a light source. The reason for this is that a path which starts at some point on the surface of a light source is very unlikely to hit the image plane. More sophisticated methods like Bidirectional Path Tracing start rays at both ends and try to connect them, but those are outside the scope of this report.
 
 \section{Acceleration Structures} \label{acceleration}
 Intersection tests are by far the most expensive part of any ray tracing algorithm. \cite[7]{Whitted:1980} This is true even for simple scenes, but becomes a major performance issue in large scenes. Ideally we would like the performance of a ray tracer to be independent from scene complexity, but this is no possible when using a classical polygon based scene representation.
 Rasterization renderers usually perform a culling operation to exclude objects which are not in view of the camera from being rendered. Unfortunately that is not helpful for path tracing since secondary rays can require intersection tests with off-screen objects.
-The naive implementation of a ray cast performs an intersection test with every primitive in the scene. Hence it scales linearly with the number of primitives. Acceleration structures which partition either objects or space allow us to do better. They generally reduce the time complexity of a ray cast from $O(n)$ to $O(\log n)$ in the number of primitives. In the following I will discuss various commonly used acceleration structures. The main trade off is usually construction time vs. ray tracing performance. Generally, structures which offer better ray tracing performance take longer to set up and are mostly suited for static scenes, while structures which trade in some ray tracing performance for shorter set up times are better suited for real time applications with dynamic scenes.
+The naive implementation of a ray cast performs an intersection test with every primitive in the scene. Hence it scales linearly with the number of primitives. Acceleration structures which partition either objects or space allow us to do better. They generally reduce the time complexity of a ray cast from $O(n)$ to $O(\log n)$ in the number of primitives. In the following I will discuss various commonly used acceleration structures. The main trade off is usually construction time vs. ray tracing performance. Generally, structures which offer better ray tracing performance take longer to set up and are mostly suited for static scenes, while structures which trade in some ray tracing performance for shorter set up times are better suited for real time applications and dynamic scenes.
 
 \subsection{BSP and KD-Trees}
+The first class of acceleration structures are space partitioning trees. They split the scene into smaller and smaller sub-spaces which are wholly contained in their parent space. It is also recorded which objects belong to which sub-space. Once the tree is constructed a ray-scene intersection algorithm can start at the root node and only traverse into sub trees if the ray intersects with their parent node. Actual ray-primitive intersection tests are only necessary once a leaf node is reached. If the tree is well constructed this reduces the number of intersection tests dramatically.
 
-\subsection{Volume Hierarchies}
+\subsection{Bounding Volume Hierarchies}
+On a first glance BVHs look very similar to BSPs. The difference is that BVHs group objects together recursively and build a tree that way while BSPs split space recursively. 
+
+\subsection{The Bounding Interval Hierarchy} 
+\cite{waechter06}
 
 \section{Reducing Noise} \label{noise}
 For classical path tracing to converge to a stable solution we need to sample thousands of paths for each pixel. Since sampling a path requires intersection tests which are already the bottleneck of the pipeline this is not something we can afford under the constraints of real time rendering. The lack of samples results in a high variance between pixels which is expressed as noise. While uniform noise is one of the more pleasant artefacts in computer graphics it still impacts the perceived quality of rendered images. [TODO: FIND STUDY]
