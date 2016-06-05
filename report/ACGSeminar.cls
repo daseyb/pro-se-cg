@@ -54,7 +54,7 @@
 \RequirePackage{fancyhdr}
 \RequirePackage{mathtools}
 \RequirePackage{tabularx}
-\RequirePackage[backend=bibtex,style=alphabetic,sorting=nty,hyperref=auto]{biblatex}
+\RequirePackage[backend=bibtex,style=alphabetic,sorting=nty,hyperref=auto,natbib=true]{biblatex}
 %\AtBeginDocument{\RequirePackage[colorlinks=true,citecolor=black,linkcolor=black,urlcolor=black]{hyperref}}
 \RequirePackage[font=small,margin=2.5cm,labelfont=bf]{caption}
 

@@ -14,13 +14,7 @@
 \usepackage{pgfplots}
 \usepgfplotslibrary{polar}
 \usetikzlibrary{pgfplots.polar}
-
-\tikzset{
-  root/.style     = {draw=none},
-  leaf/.style     = {draw=none},
-  dummy/.style    = {circle,draw},
-  text-node/.style    = {rectangle, rounded corners, align=center,draw},
-}
+\usepackage{forest}
 
 \bibliography{references}
 
@@ -72,7 +66,8 @@ In this report I will:
 \item Describe a state of the art ray tracing algorithm. (Section \ref{path-tracing})
 \item Introduce techniques to reduce the time spent on ray-scene intersections. (Section \ref{acceleration})
 \item Explain how to use the fact that the algorithm is running at interactive frame rates to improve image quality. (Section \ref{noise})
-\item Present an implementation. (Section \ref{gpu-adapting})
+\item Give an overview over how to parallelize the construction of acceleration structures (Section \ref{gpu-adapting}) 
+\item Present an implementation which incorporates the ideas described in this report. (Section \ref{results})
 \end{itemize}
 
 
@@ -114,6 +109,11 @@ I(x,x')= \overbrace{g(x,x')}^{\mathclap{\text{Geometry Term}}}
 It describes the light transport between two points $x$ and $x'$ as a combination of emitted and reflected light at $x'$. The geometry term describes the amount of light that actually arrives at $x$ (e.g. $g(x,x') = 0$ if there is an object between the two points). To compute the reflected light we need to integrate over all directions in the hemisphere $S$ above point $x'$. 
 The main difference between rendering algorithms is how they approach the evaluation of this integral. It cannot be evaluated analytically for scenes which are even remotely interesting, but the formulation of the rendering problem as an integral equation allows us to employ methods from calculus to devise new algorithms.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Second Section
+\section{Overview over the path tracing algorithm} \label{path-tracing}
+Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". \cite{veach1997robust} Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The final value of a path sample is calculated using Equation \eqref{eq:rendering-equation}, recursively evaluating it for $x_0$ to $x_n$. 
+
 \begin{figure}[htb!]
   \begin{centering}
     \tdplotsetmaincoords{0}{0}
@@ -135,25 +135,13 @@ The main difference between rendering algorithms is how they approach the evalua
   \label{fig:light-transport}
 \end{figure}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Second Section
-\section{Overview over the path tracing algorithm} \label{path-tracing}
-Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". \cite{veach1997robust} Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The final value of a path sample is calculated using Equation \eqref{eq:rendering-equation}, recursively evaluating it for $x_0$ to $x_n$. 
-
-\begin{figure}[htb!]
-  \begin{centering}
-    \input{figures/light-path}\par
-  \end{centering}
-  \caption{A light path through a scene.}
-  \label{fig:light-path}
-\end{figure}
 
 In classical path tracing paths are traced from the camera to a light source. The reason for this is that a path which starts at some point on the surface of a light source is very unlikely to hit the image plane. More sophisticated methods like Bidirectional Path Tracing start rays at both ends and try to connect them, but those are outside the scope of this report.
 
 \section{Acceleration Structures} \label{acceleration}
 Intersection tests are by far the most expensive part of any ray tracing algorithm. \cite[7]{Whitted:1980} This is true even for simple scenes, but becomes a major performance issue in large scenes. Ideally we would like the performance of a ray tracer to be independent from scene complexity, but this is no possible when using a classical polygon based scene representation.
 Rasterization renderers usually perform a culling operation to exclude objects which are not in view of the camera from being rendered. Unfortunately that is not helpful for path tracing since secondary rays can require intersection tests with off-screen objects.
-The naive implementation of a ray cast performs an intersection test with every primitive in the scene. Hence it scales linearly with the number of primitives. Acceleration structures which partition either objects or space allow us to do better. They generally reduce the time complexity of a ray cast from $O(n)$ to $O(\log n)$ in the number of primitives. In the following I will discuss various commonly used acceleration structures. The main trade off is usually construction time vs. ray tracing performance. Generally, structures which offer better ray tracing performance take longer to set up and are mostly suited for static scenes, while structures which trade in some ray tracing performance for shorter set up times are better suited for real time applications and dynamic scenes.
+The naive implementation of a ray cast performs an intersection test with every primitive in the scene. Hence it scales linearly with the number of primitives. Acceleration structures which partition either objects or space allow us to do better. They generally reduce the time complexity of a ray cast from $O(n)$ to $O(\log n)$ in the number of primitives. In the following I will discuss various commonly used acceleration structures. The main trade off is usually construction time versus ray tracing performance. Generally, structures which offer better ray tracing performance take longer to set up and are mostly suited for static scenes, while structures which trade in some ray tracing performance for shorter set up times are better suited for real time applications and dynamic scenes. \cite{Karras:2012:MPC:2383795.2383801}
 
 \subsection{BSP and KD-Trees}
 The first class of acceleration structures are space partitioning trees. They split the scene into smaller and smaller sub-spaces which are wholly contained in their parent space. It is also recorded which objects belong to which sub-space. Once the tree is constructed a ray-scene intersection algorithm can start at the root node and only traverse into sub trees if the ray intersects with their parent node. Actual ray-primitive intersection tests are only necessary once a leaf node is reached. If the tree is well constructed this reduces the number of intersection tests dramatically.
@@ -291,22 +279,77 @@ f_t(C_{t}(p)) = \alpha s_t(p) + (1-\alpha)(f_{t-1}(C_{t}(p) + M_t(p)))
 
 The smoothing factor $\alpha$ presents a trade off between responsiveness (high $\alpha$) and variance reduction (low $\alpha$). It can either be set statically or be determined dynamically by some heuristic. A rejected history sample corresponds to $\alpha = 1$. 
 
-\section{Adapting the described algorithms to the GPU} \label{gpu-adapting}
-The naive path tracing algorithm is easily adapted to the GPU. The massively parallel architecture maps nicely to computing many independent path samples. In my implementation I start one compute shader thread for each pixel in the output image. The main issue with porting ray tracing algorithms in general is that acceleration structure form trees, which don't map nicely to the linear, pointer restricted memory model of a GPU. Traversing a tree in the intuitive, recursive, way requires a stack, but since we are traversing... Especially building such data structure on the GPU is difficult, since parallelizing the construction process is often non-trivial if not impossible.
+\section{Hierarchical data structures on the GPU} \label{gpu-adapting}
+The naive path tracing algorithm is easily adapted to the GPU. The massively parallel architecture maps nicely to computing many independent path samples. In my implementation I start one compute shader thread for each pixel in the output image. The main issue with porting ray tracing algorithms in general is that acceleration structure form trees, which don't map nicely to the linear, pointer restricted memory model of a GPU. Especially building such data structure on the GPU is difficult, since parallelizing the classical construction algorithms is often non-trivial if not impossible. \cite[1]{Karras:2012:MPC:2383795.2383801}
+\subsection{Construction}
+\citet{Karras:2012:MPC:2383795.2383801} presents a method which aids in the parallel construction of both bounding volume hierarchies as well as space partitioning trees. He constructs an ordered binary radix tree containing a Morton code for each primitive and shows how this construction can be distributed on n-1 threads (where n is the number of primitives). This maps very nicely to GPU architectures since the number of threads is known in advance and the tree construction can be achieved in one compute shader dispatch. One of the possible outputs of this method is a kd-tree with n-1 internal nodes (one node per thread). Unfortunately Karras does not analyse the ray tracing performance of the generated trees.
+\begin{figure}[htb!]
+  \centering
+  \begin{tikzpicture}
+    \def\codes{{"0000","0001","0100","0101",
+                "0010","0011","0110","0111",
+                "1000","1001","1100","1101",
+                "1010","1011","1110","1111"}}
+    \draw[step=1cm,gray,very thin] (0,0) grid (4,4);
+      
+    \fill[red,opacity=0.75] (2.5cm,3.5cm) circle (0.3cm) node[black]{B};
+    \fill[green,opacity=0.75] (1.25cm,1.25cm) rectangle (1.75cm, 1.75cm);
+    \draw (1.5,1.5) node[black]{A};
+    \fill[blue,opacity=0.75] (3.5,0.5) ellipse (0.4cm and 0.2cm) node[black]{C};
+    \foreach \x in {0,...,3}
+    \foreach \y in {0,...,3}
+      \draw ( \x*1cm+0.5cm, \y*1cm+0.5cm) -- (\x*1cm+0.5cm, \y*1cm+0.5cm) node[anchor=north,gray,opacity=0.75] {\pgfmathparse{ {\codes[\x + (3-\y)*4]}}\pgfmathresult };
+  \end{tikzpicture}
+  \qquad
+  \begin{forest}
+	for tree={
+	  parent anchor=south, 
+	  child anchor=north,
+	  align=center,
+	  base=bottom
+	},
+	where n children=0{tier=word}{}
+	[ 
+          [B\\0100]
+          [1
+              [A\\1001] 
+              [C\\1111] ] ]
+  \end{forest}
+  \qquad
+  \begin{tikzpicture}
+    \draw[gray,very thin] (0,0) rectangle (4,4);
+    \draw[black, thick] (0,2) -- (4,2);
+    \draw[black, thick] (2,0) -- (2,2) ;   
+    \fill[red,opacity=0.75] (2.5cm,3.5cm) circle (0.3cm) node[black]{B};
+    \fill[green,opacity=0.75] (1.25cm,1.25cm) rectangle (1.75cm, 1.75cm);
+    \draw (1.5,1.5) node[black]{A};
+    \fill[blue,opacity=0.75] (3.5,0.5) ellipse (0.4cm and 0.2cm) node[black]{C};
+  \end{tikzpicture}
+  \caption{Steps of constructing a kd-tree as described in \cite{Karras:2012:MPC:2383795.2383801}\\1) Assign a Morton code to each object. \\2) Sort objects and insert into binary radix tree\\3) Construct kd-tree.}
+  \label{fig:tree-construction}
+\end{figure}
 
-\subsection{Accessing the GPU outside of the rasterization pipeline}
-Compute shaders
-% Easier integration with OpenGL (needed for TXAA)
-\subsection{Hierarchical data structures on the GPU}
-Use this: \cite{Karras:2012:MPC:2383795.2383801} \cite{Foley:2005}
+The sorting step can be done parallelized by using some parallel sorting technique like the one introduced in \cite{Merrill:2010:RSG:1854273.1854344}.
+
+\subsection{Traversal}
+Once we have constructed an acceleration structure we need to find an efficient way to traverse it and find the closest intersection with a ray. For this report I will focus on traversing kd-trees, since "[they are] the best general purpose acceleration structure for CPU raytracers" \cite{Foley:2005} and a kd-tree is one of the outputs of the algorithm described in the previous section.
+
 
 \section{Results} \label{results}
-I plan to implement everything I describe since I strongly believe computer science papers should \textbf{always} come with code.
+To familiarize myself with the techniques I describe in this paper I implemented a real time path tracer using C++ and OpenGL. The source code can be found at https://github.com/bonus2113/pro-se-cg.
+Much of the code is based on the edge-of-space engine \cite{edge_of_space} which was built for the game programming module at RWTH Aachen in WS 15/16.
+The main features are:
+\begin{itemize}
+\item Real time rendering of triangle models using path tracing.
+\item An interactive camera system.
+\item Shader hot reloading for fast iteration times.
+\item TODO: FINISH FEATURE LIST
+\end{itemize}
+
 \subsection{Images}
 Pretty images rendered in real time. Link to a video.
 \subsection{Timings}
 Timing comparisons between the different techniques.
-
 
 \begin{figure}[htb!]
   \begin{centering}
