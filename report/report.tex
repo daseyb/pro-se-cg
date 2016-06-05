@@ -7,6 +7,7 @@
 \usepackage{mathtools}
 \usepackage{tikz-3dplot}
 \usepackage{pst-all}
+\usepackage{pstricks}
 \usepackage{pstricks-add}
 \usepackage{graphicx}
 \usepackage{pspicture}
@@ -115,28 +116,39 @@ The main difference between rendering algorithms is how they approach the evalua
 Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". \cite{veach1997robust} Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The final value of a path sample is calculated using Equation \eqref{eq:rendering-equation}, recursively evaluating it for $x_0$ to $x_n$. 
 
 \begin{figure}[htb!]
+  \centering
+  \input{figures/light-path.tex}
+  \caption{A light path through a scene.}
+  \label{fig:light-path}
+\end{figure}
+
+In classical path tracing paths start at a point on the image plane. A first intersection point in the scene is calculated. At this point a scattering event is simulated. This is done by randomly choosing a new direction with a distribution which depends on the material of the hit object. The next intersection is calculated based on the chosen direction.
+
+\begin{figure}[htb!]
   \begin{centering}
     \tdplotsetmaincoords{0}{0}
     \begin{tikzpicture}[tdplot_main_coords]
       \draw[thick,-] (-4,0) -- (4,0) node[anchor=north east]{Surface};
       \draw[thick,->] (0,0) -- (0,2.5) node[anchor=north west]{$\vec{n}$};
-      \draw[thick,->] (0,0) -- (-3.5,3.0) node[anchor=south east]{$\overrightarrow{x'x}$};
+      \draw[thick,<-] (0,0) -- (-3.5,3.0)
+                      node[anchor=south east]{$\overrightarrow{x_{i-1}x_i}$};
       \tdplotdefinepoints(0,0,0)(0,2,0)(-3.5,3.0,0);
       \tdplotdrawpolytopearc[thin,<->]{1.25}{anchor=south}{$\omega_0$};
-      \draw[thick,dashed,-<] (0,0) -- (3.5,1.5) node[anchor=south west]{$\overrightarrow{x''x'}$};
+      \draw[thick,dashed,->] (0,0) -- (3.5,1.5)
+                             node[anchor=south west]{$\overrightarrow{x_ix_{i+1}}$};
       \tdplotdefinepoints(0,0,0)(0,2,0)(3.5,1.5,0);
       \tdplotdrawpolytopearc[thin,<->]{1.5}{anchor=south}{$\omega_1$};
       \draw[thin, densely dotted, <-] (0,0) -- (1, 0) arc (0:180:1cm) -- cycle;
       \draw (1,0) node[below]{$S$};
-      \draw (0,0) node[below]{$x'$};
+      \draw (0,0) node[below]{$x_i$};
     \end{tikzpicture}\par
   \end{centering}
-  \caption{Geometry of light transport as described in \eqref{eq:rendering-equation}}
-  \label{fig:light-transport}
+  \caption{Geometry of a single scattering event.}
+  \label{fig:scattering-event}
 \end{figure}
 
-
-In classical path tracing paths are traced from the camera to a light source. The reason for this is that a path which starts at some point on the surface of a light source is very unlikely to hit the image plane. More sophisticated methods like Bidirectional Path Tracing start rays at both ends and try to connect them, but those are outside the scope of this report.
+A path is terminated when (1) it reaches a light source (2) the maximum path length is reached.
+The reason why paths start at the camera is is that a path which starts at some point on the surface of a light source is very unlikely to hit the image plane. More sophisticated methods like Bidirectional Path Tracing start rays at both ends and try to connect them, but those are outside the scope of this report.
 
 \section{Acceleration Structures} \label{acceleration}
 Intersection tests are by far the most expensive part of any ray tracing algorithm. \cite[7]{Whitted:1980} This is true even for simple scenes, but becomes a major performance issue in large scenes. Ideally we would like the performance of a ray tracer to be independent from scene complexity, but this is no possible when using a classical polygon based scene representation.
@@ -318,8 +330,8 @@ The naive path tracing algorithm is easily adapted to the GPU. The massively par
   \qquad
   \begin{tikzpicture}
     \draw[gray,very thin] (0,0) rectangle (4,4);
-    \draw[black, thick] (0,2) -- (4,2);
-    \draw[black, thick] (2,0) -- (2,2) ;   
+    \draw[black, very thick] (0,2) -- (4,2);
+    \draw[black, very thick] (2,0) -- (2,2) ;   
     \fill[red,opacity=0.75] (2.5cm,3.5cm) circle (0.3cm) node[black]{B};
     \fill[green,opacity=0.75] (1.25cm,1.25cm) rectangle (1.75cm, 1.75cm);
     \draw (1.5,1.5) node[black]{A};
@@ -333,6 +345,61 @@ The sorting step can be done parallelized by using some parallel sorting techniq
 
 \subsection{Traversal}
 Once we have constructed an acceleration structure we need to find an efficient way to traverse it and find the closest intersection with a ray. For this report I will focus on traversing kd-trees, since "[they are] the best general purpose acceleration structure for CPU raytracers" \cite{Foley:2005} and a kd-tree is one of the outputs of the algorithm described in the previous section.
+The classical traversal algorithm requires a stack to store nodes which still need to be processed. Due to the high number of rays which are processed in parallel on the GPU, a stack per ray is not feasible. This is why stackless traversal algorithms are necessary for efficient GPU ray tracing. One such algorithm is introduced by \citet{popov2007stackless}. They not only describe a technique which can travers any kd-tree without needing a stack, but also propose an efficient memory layout, taking the peculiarities of modern GPUs into consideration. A usual limitation of stackless traversal algorithm is the need to "restart" a traversal when a leaf is reached, since we cannot store which internal nodes to travers next.
+
+\citet{popov2007stackless} get around this by storing additional information, so called "ropes", in each leaf. Ropes are pointers to the spatially adjacent nodes of a leaf. Once a leaf is reached during regular traversal we can move to the next node by following the appropriate rope based on the ray direction. This reduces the time spent on "re-traversing" the tree immensely. They also propose an efficient post-processing algorithm to add ropes to any kd-tree.
+
+\begin{figure}[htb!]
+  \centering
+  \begin{tikzpicture}[thick,scale=0.8, every node/.style={scale=0.8}]
+    \draw[gray,very thin] (0,0) rectangle (4,4);
+    \draw[black, very thick] (0,2) -- (4,2);
+    \draw[black, very thick] (2,0) -- (2,2);   
+    \draw[very thick,orange,->] (-0.75, 0.93) -- (3.82, 4.72);
+    \draw[very thick,black,->] (1,1) to[bend left=20] (1,3);
+    \draw[very thick,black,->] (1,1) to[bend left=20] (3,1);
+    \draw[thick,dashed,gray,->] (1,1) to[bend right=20] (1,-1);
+    \draw[thick,dashed,gray,->] (1,1) to[bend right=20] (-1,1);
+    \fill[red,opacity=0.75] (2.5cm,3.5cm) circle (0.3cm) node[black]{B};
+    \fill[green,opacity=0.75] (1.25cm,1.25cm) rectangle (1.75cm, 1.75cm);
+    \draw (1.5,1.5) node[black]{A};
+    \fill[blue,opacity=0.75] (3.5,0.5) ellipse (0.4cm and 0.2cm) node[black]{C};
+  \end{tikzpicture}
+  \qquad
+  \begin{tikzpicture}[thick,scale=0.8, every node/.style={scale=0.8}]
+    \draw[gray,very thin] (0,0) rectangle (4,4);
+    \draw[black, very thick] (0,2) -- (4,2);
+    \draw[black, very thick] (2,0) -- (2,2);  
+    \draw[red,very thick] (0,0) rectangle (2,2);
+    \draw[very thick,orange,->] (-0.75, 0.93) -- (3.82, 4.72);
+    \draw[very thick,black,->] (1,1) to[bend left=20] (1,3);
+    \draw[very thick,black,->] (1,1) to[bend left=20] (3,1);
+    \draw[thick,dashed,gray,->] (1,1) to[bend right=20] (1,-1);
+    \draw[thick,dashed,gray,->] (1,1) to[bend right=20] (-1,1);
+    \fill[red,opacity=0.75] (2.5cm,3.5cm) circle (0.3cm) node[black]{B};
+    \fill[green,opacity=0.75] (1.25cm,1.25cm) rectangle (1.75cm, 1.75cm);
+    \draw (1.5,1.5) node[black]{A};
+    \fill[blue,opacity=0.75] (3.5,0.5) ellipse (0.4cm and 0.2cm) node[black]{C};
+  \end{tikzpicture}
+  \qquad
+  \begin{tikzpicture}[thick,scale=0.8, every node/.style={scale=0.8}]
+    \draw[gray,very thin] (0,0) rectangle (4,4);
+    \draw[black, very thick] (0,2) -- (4,2);
+    \draw[black, very thick] (2,0) -- (2,2);  
+    \draw[red,very thick] (0,2) rectangle (4,4);
+    \draw[very thick,orange,->] (-0.75, 0.93) -- (3.82, 4.72);
+    \draw[very thick,red,->] (1,1) to[bend left=20] (1,3);
+    \draw[very thick,black,->] (1,1) to[bend left=20] (3,1);
+    \draw[thick,dashed,gray,->] (1,1) to[bend right=20] (1,-1);
+    \draw[thick,dashed,gray,->] (1,1) to[bend right=20] (-1,1);
+    \fill[red,opacity=0.75] (2.5cm,3.5cm) circle (0.3cm) node[black]{B};
+    \fill[green,opacity=0.75] (1.25cm,1.25cm) rectangle (1.75cm, 1.75cm);
+    \draw (1.5,1.5) node[black]{A};
+    \fill[blue,opacity=0.75] (3.5,0.5) ellipse (0.4cm and 0.2cm) node[black]{C};
+  \end{tikzpicture}
+  \caption{Traversing a kd-tree with ropes as proposed by \citet{popov2007stackless}. The first leaf is found as usual, afterwards we follow a rope in the appropriate direction instead of moving back up the tree.}
+  \label{fig:tree-traversal}
+\end{figure}
 
 
 \section{Results} \label{results}
