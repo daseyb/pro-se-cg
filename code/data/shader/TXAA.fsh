@@ -35,7 +35,7 @@ void main()
     }
   }
   
-  float factor = 0.9; //0.5 * max(0, 1.0-30.0 * sqrt(length(motion) - length(prevMotion)));
+  float factor = 0.8; //0.5 * max(0, 1.0-30.0 * sqrt(length(motion) - length(prevMotion)));
   
   vec4 current = texture(uSamplerColor, vTexCoord);
     

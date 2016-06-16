@@ -11,6 +11,7 @@
 #include <engine/ui/UISystem.hpp>
 #include <engine/scene/SceneGraphSystem.hpp>
 #include <engine/audio/MidiSystem.hpp>
+#include <engine/audio/OscSystem.hpp>
 
 #include <engine/scene/Drawable.hpp>
 #include <engine/events/MouseEvent.hpp>
@@ -56,6 +57,7 @@ int main(int argc, char *argv[]) {
   SceneGraphSystem sceneGraph(&context);
   AudioSystem audio(&context);
   MidiSystem midi(&context);
+  OscSystem osc(&context, 2346);
   UISystem ui(&context);
   GameLoopSystem gameLoop(&context, 60, 100);
 

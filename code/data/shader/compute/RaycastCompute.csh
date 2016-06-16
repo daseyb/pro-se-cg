@@ -18,12 +18,12 @@ uniform uint uSeed;
 uniform int uMaxBounces = 2;
 
 const vec3 lightPos = vec3(0, 8, 10);
-const vec3 dielecSpec = vec3(0.2);
+const vec3 dielecSpec = vec3(0.0);
 
 const Material[] materials = Material[]( Material( vec3(1, 1, 1), dielecSpec, 0.3, 0.0, 1.0) );
 const SphereLight[] lights = SphereLight[](
-  SphereLight( vec3(0, 8, 8), 2.0, vec3(0.3, 0.4, 0.6) ),
-  SphereLight( vec3(-8, 8, 8), 1.0, vec3(0.9, 0.1, 0.0) )
+  SphereLight( vec3(0, 8, 8), 2.0, vec3(1.0, 0.9, 0.9) ),
+  SphereLight( vec3(-8, 8, 8), 1.0, vec3(0.9, 0.9, 1.0) )
 );
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
@@ -313,7 +313,7 @@ vec3 trace(Ray r, inout uint random) {
     {
       dir = directionCosTheta(intr.norm, random);
       pos = intr.pos;
-      weight *= 1; // cos theta vs p(w), f vs. rho, pi in p(w) and f
+      weight *= 1; //dot(dir, intr.norm); // cos theta vs p(w), f vs. rho, pi in p(w) and f
     }
     // REFRACT
     else if (uniformFloat(0, 1, random) <= rhoR)

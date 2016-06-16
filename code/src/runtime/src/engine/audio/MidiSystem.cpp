@@ -48,10 +48,11 @@ bool MidiSystem::startup() {
   glow::debug() << "Default Input Device Name: "
                        << defaultDeviceInfo->name << "\n";
 
+
   error = Pm_OpenInput(&m_inputStream, defaultDeviceId, NULL, 32, NULL, NULL);
   if (error) {
       glow::error() << Pm_GetErrorText(error) << "\n";
-    return false;
+    return true;
   }
 
   m_events->subscribe<SimulateEvent>([&](const SimulateEvent &e) { update(); });
