@@ -221,7 +221,7 @@ The most basic example of importance sampling is using the fact that all BRDFs m
 To keep the expected value of the Monte Carlo integration the same we need to account for the fact that we are no longer sampling $f$ uniformly. This is done by simply dividing the sampled value by the probability of choosing that value since
 
 \begin{equation}
-E[\frac{1}{N} \sum_{i=1}^{N} f(X_i)], X \sim U = E[\frac{1}{N} \sum_{i=1}^{N} \frac{f(X_i)}{p(X_i)}], X \sim p
+E[\frac{1}{N} \sum_{i=1}^{N} f(X_i)], X \sim U = E[\frac{1}{N} \sum_{i=1}^{N} \frac{f(X_i)}{p(X_i)}], X \sim p \text{\footnote{TODO: I know this is not quite right, I need to find the proper equalitiy for expected values of different distributions.}}
 \end{equation}
 
 There is a lot of value in finding a good approximation to a BRDF since sampling even relatively complex approximations is very cheap compared intersection tests. Better importance sampling directly correlates with less variance and thus reduces the number of needed path samples per pixel dramatically.
@@ -261,7 +261,7 @@ There is a lot of value in finding a good approximation to a BRDF since sampling
   \centering
   \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/50_spp_cosine_weighted.png}
   \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/50_spp_uniform.png}
-  \caption{Left: Cosine Weighted Sampling, Right: Uniform Sampling TODO: GET CORRECT RENDERS OF BOTH CASES}
+  \caption{Left: Cosine Weighted Sampling, Right: Uniform Sampling}
   \label{fig:rendering-cos-weighted}
 \end{figure}
 
