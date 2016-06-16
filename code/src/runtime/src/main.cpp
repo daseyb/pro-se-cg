@@ -12,11 +12,13 @@
 #include <engine/scene/SceneGraphSystem.hpp>
 #include <engine/audio/MidiSystem.hpp>
 #include <engine/audio/OscSystem.hpp>
+#include <engine/audio/OscToMidiSystem.hpp>
 
 #include <engine/scene/Drawable.hpp>
 #include <engine/events/MouseEvent.hpp>
 #include <engine/events/KeyboardEvent.hpp>
 #include <engine/core/SimulateEvent.hpp>
+#include <engine/audio/MidiNoteEvent.hpp>
 
 #include <glow-extras/assimp/Importer.hh>
 #include <glow/objects/VertexArray.hh>
@@ -50,7 +52,7 @@ int main(int argc, char *argv[]) {
   Context context;
   SettingsSystem settings(&context, "data/", "textures/", "geometry/",
                           "shader/", "sound/", configFile);
-  WindowSystem window(&context, 640, 320, false);
+  WindowSystem window(&context, 1280, 720, false);
   ProfilerSystem profiler(&context);
   EventSystem events(&context);
   RendererSystem renderer(&context);
@@ -58,6 +60,7 @@ int main(int argc, char *argv[]) {
   AudioSystem audio(&context);
   MidiSystem midi(&context);
   OscSystem osc(&context, 2346);
+  OscToMidiSystem oscToMidi(&context, 1);
   UISystem ui(&context);
   GameLoopSystem gameLoop(&context, 60, 100);
 
@@ -79,16 +82,17 @@ int main(int argc, char *argv[]) {
   camTransform->position = glm::vec3(0, 0, 30);
   renderer.addRenderPass(camera, "Main"_sh);
 
-  auto& importer = glow::assimp::Importer();
+  auto &importer = glow::assimp::Importer();
   importer.setCalculateTangents(false);
   importer.setGenerateSmoothNormal(false);
   importer.setGenerateUVCoords(false);
 
-  Geometry teapotGeom = { importer.load("data/geometry/teapot.obj") };
-  Geometry testSceneGeom = { importer.load("data/geometry/test_scene.blend") };
-  Geometry teddyGeom = { importer.load("data/geometry/teddy.obj") };
-  Geometry coornellBoxGeom = { importer.load("data/geometry/CornellBox-Original.obj") };
-  Geometry icosphereGeom = { importer.load("data/geometry/icosphere.obj") };
+  Geometry teapotGeom = {importer.load("data/geometry/teapot.obj")};
+  Geometry testSceneGeom = {importer.load("data/geometry/test_scene.blend")};
+  Geometry teddyGeom = {importer.load("data/geometry/teddy.obj")};
+  Geometry coornellBoxGeom = {
+      importer.load("data/geometry/CornellBox-Original.obj")};
+  Geometry icosphereGeom = {importer.load("data/geometry/icosphere.obj")};
 
   Material sphereMat = {
       {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f, 0.0f}, RenderQueue::OPAQUE};
@@ -96,10 +100,9 @@ int main(int argc, char *argv[]) {
   auto boxTrans = teapotCenter.assign<Transform>();
   teapotCenter.assign<Drawable>(testSceneGeom, sphereMat);
 
-
   Entity icosphereSide = sceneGraph.create();
   auto teapotSideTransform = icosphereSide.assign<Transform>();
-  teapotSideTransform->position = { -10, 0, 0 };
+  teapotSideTransform->position = {-10, 0, 0};
   icosphereSide.assign<Drawable>(icosphereGeom, sphereMat);
 
   bool keyState[SDL_NUM_SCANCODES] = {};
@@ -137,11 +140,13 @@ int main(int argc, char *argv[]) {
 
   events.subscribe<KeyboardEvent>([&](const KeyboardEvent &e) {
     if (e.originalEvent.key.repeat != 0) {
-        return;
+      return;
     }
 
-    if (e.originalEvent.key.keysym.scancode < SDL_NUM_SCANCODES && e.originalEvent.key.keysym.scancode >= 0) {
-        keyState[e.originalEvent.key.keysym.scancode] = e.originalEvent.key.type == SDL_KEYDOWN;
+    if (e.originalEvent.key.keysym.scancode < SDL_NUM_SCANCODES &&
+        e.originalEvent.key.keysym.scancode >= 0) {
+      keyState[e.originalEvent.key.keysym.scancode] =
+          e.originalEvent.key.type == SDL_KEYDOWN;
     }
 
     switch (e.originalEvent.key.keysym.scancode) {
@@ -159,22 +164,48 @@ int main(int argc, char *argv[]) {
     }
   });
 
-  events.subscribe<SimulateEvent>([&](const SimulateEvent& e) {
-      glm::vec3 moveDir{ 0, 0, 0 };
-      if (keyState[SDL_SCANCODE_W]) moveDir -= glm::vec3(0, 0, 1);
-      if (keyState[SDL_SCANCODE_S]) moveDir += glm::vec3(0, 0, 1);
-      if (keyState[SDL_SCANCODE_A]) moveDir -= glm::vec3(1, 0, 0);
-      if (keyState[SDL_SCANCODE_D]) moveDir += glm::vec3(1, 0, 0);
+  float teapotScale = 1.0f;
 
-      float speed = 10.0;
-      if (keyState[SDL_SCANCODE_LSHIFT]) speed = 100.0f;
+  events.subscribe<SimulateEvent>([&](const SimulateEvent &e) {
+    glm::vec3 moveDir{0, 0, 0};
+    if (keyState[SDL_SCANCODE_W])
+      moveDir -= glm::vec3(0, 0, 1);
+    if (keyState[SDL_SCANCODE_S])
+      moveDir += glm::vec3(0, 0, 1);
+    if (keyState[SDL_SCANCODE_A])
+      moveDir -= glm::vec3(1, 0, 0);
+    if (keyState[SDL_SCANCODE_D])
+      moveDir += glm::vec3(1, 0, 0);
 
-      if (moveDir.x != 0 || moveDir.y != 0 || moveDir.z != 0) {
-          moveDir = rotate(glm::normalize(moveDir), camTransform->rotation);
-          camTransform->position += moveDir * e.dt * speed;
-      }
+    float speed = 10.0;
+    if (keyState[SDL_SCANCODE_LSHIFT])
+      speed = 100.0f;
 
-      teapotSideTransform->position = glm::vec3(sinf(e.totalTime), 0.0f, cosf(e.totalTime)) * 5.0f;
+    if (moveDir.x != 0 || moveDir.y != 0 || moveDir.z != 0) {
+      moveDir = rotate(glm::normalize(moveDir), camTransform->rotation);
+      camTransform->position += moveDir * e.dt * speed;
+    }
+
+    if (teapotScale > 1.0f) {
+      teapotScale -= (teapotScale - 1.0f) * e.dt;
+    }
+
+    teapotSideTransform->position =
+        glm::vec3(sinf(e.totalTime), 0.0f, cosf(e.totalTime)) * 5.0f;
+    teapotSideTransform->scale = glm::vec3(teapotScale);
+  });
+
+  events.subscribe<MidiNoteEvent>([&](const MidiNoteEvent &e) {
+    if (!e.on) {
+      return;
+    }
+
+    switch (e.noteIndex) {
+    case 36:
+      teapotScale = 4.0f;
+    default:
+      break;
+    }
   });
 
   // Kickoff the gameloop

@@ -10,13 +10,12 @@
 bool MidiSystem::startup() {
   RESOLVE_DEPENDENCY(m_events);
 
-
   for (int i = 0; i < CHANNEL_COUNT; i++) {
-      m_pitchBendValues[i] = 0;
-      for (int j = 0; j < VALUE_COUNT; j++) {
-          m_controlValues[i][j] = 0;
-          m_keyStates[i][j] = { false, 0 };
-      }
+    m_pitchBendValues[i] = 0;
+    for (int j = 0; j < VALUE_COUNT; j++) {
+      m_controlValues[i][j] = 0;
+      m_keyStates[i][j] = {false, 0};
+    }
   }
 
   PmError error = Pm_Initialize();
@@ -26,87 +25,87 @@ bool MidiSystem::startup() {
     return false;
   }
 
+  m_events->subscribe<MidiNoteEvent>([&](const MidiNoteEvent &e) {
+    m_keyStates[e.channel][e.noteIndex].isDown = e.on && e.velocity != 0.0f;
+    m_keyStates[e.channel][e.noteIndex].velocity = e.velocity;
+  });
+
+  m_events->subscribe<MidiControlEvent>([&](const MidiControlEvent &e) {
+    m_controlValues[e.channel][e.controlIndex] = e.value;
+  });
+
+  m_events->subscribe<MidiPitchBendEvent>([&](const MidiPitchBendEvent &e) {
+    m_pitchBendValues[e.channel] = e.value;
+  });
+
+  m_events->subscribe<"DrawUI"_sh>(
+      [this] {
+        static bool valuesOpened = true;
+        if (!ImGui::Begin("Midi Controls", &valuesOpened, ImVec2(275, 0),
+                          0.3f)) {
+          ImGui::End();
+          return;
+        }
+
+        static int currentChannel = 1;
+
+        ImGui::DragInt("Channel", &currentChannel, 1.0f, 0, CHANNEL_COUNT - 1);
+        float controlValues[VALUE_COUNT];
+
+        for (int i = 0; i < VALUE_COUNT; i++) {
+          controlValues[i] = controlValue(i, currentChannel);
+        }
+
+        ImGui::PlotHistogram("Values", controlValues, VALUE_COUNT, 0, NULL, 0,
+                             1.0f, glm::vec2(450, 100));
+
+        ImGui::Separator();
+
+        float keyValues[VALUE_COUNT];
+        for (int i = 0; i < VALUE_COUNT; i++) {
+          keyValues[i] = keyState(i, currentChannel);
+        }
+
+        ImGui::PlotHistogram("Keys", keyValues, VALUE_COUNT, 0, NULL, 0, 1.0f,
+                             glm::vec2(450, 100));
+        ImGui::Separator();
+
+        float val = pitchBend(currentChannel);
+        ImGui::DragFloat("Pitch Bend", &val, 1.0f, -1.0f, 1.0f);
+
+        ImGui::End();
+      },
+      1);
+
   int deviceCount = Pm_CountDevices();
-  glow::debug() << "MIDI Device count: " << Pm_CountDevices()
-                       << "\n";
+  glow::debug() << "MIDI Device count: " << Pm_CountDevices() << "\n";
 
   if (deviceCount == 0) {
-      glow::debug() << "No MIDI input devices found!" << "\n";
+    glow::debug() << "No MIDI input devices found!"
+                  << "\n";
     return true;
   }
 
   PmDeviceID defaultDeviceId = Pm_GetDefaultInputDeviceID();
-  glow::debug() << "Default Input Device ID: " << defaultDeviceId
-                       << "\n";
+  glow::debug() << "Default Input Device ID: " << defaultDeviceId << "\n";
 
   if (defaultDeviceId == -1) {
-      glow::debug() << "No default MIDI input device found!" << "\n";
-      return true;
+    glow::debug() << "No default MIDI input device found!"
+                  << "\n";
+    return true;
   }
 
   const PmDeviceInfo *defaultDeviceInfo = Pm_GetDeviceInfo(defaultDeviceId);
-  glow::debug() << "Default Input Device Name: "
-                       << defaultDeviceInfo->name << "\n";
-
+  glow::debug() << "Default Input Device Name: " << defaultDeviceInfo->name
+                << "\n";
 
   error = Pm_OpenInput(&m_inputStream, defaultDeviceId, NULL, 32, NULL, NULL);
   if (error) {
-      glow::error() << Pm_GetErrorText(error) << "\n";
+    glow::error() << Pm_GetErrorText(error) << "\n";
     return true;
   }
 
   m_events->subscribe<SimulateEvent>([&](const SimulateEvent &e) { update(); });
-
-
-  m_events->subscribe<MidiNoteEvent>([&](const MidiNoteEvent &e) {
-      m_keyStates[e.channel][e.noteIndex].isDown = e.on;
-      m_keyStates[e.channel][e.noteIndex].velocity = e.velocity;
-  });
-
-  m_events->subscribe<MidiControlEvent>([&](const MidiControlEvent &e) {
-      m_controlValues[e.channel][e.controlIndex] = e.value;
-  });
-
-  m_events->subscribe<MidiPitchBendEvent>([&](const MidiPitchBendEvent &e) {
-      m_pitchBendValues[e.channel] = e.value;
-  });
-
-
-  m_events->subscribe<"DrawUI"_sh>([this] {
-      static bool valuesOpened = true;
-      if (!ImGui::Begin("Midi Controls", &valuesOpened, ImVec2(275, 0), 0.3f)) {
-          ImGui::End();
-          return;
-      }
-
-      static int currentChannel = 0;
-
-      ImGui::DragInt("Channel", &currentChannel, 1.0f, 0, CHANNEL_COUNT - 1);
-      float controlValues[VALUE_COUNT];
-
-      for (int i = 0; i < VALUE_COUNT; i++) {
-          controlValues[i] = controlValue(i, currentChannel);
-      }
-
-      ImGui::PlotHistogram("Values", controlValues, VALUE_COUNT, 0, NULL, 0, 1.0f, glm::vec2(450, 100));
-
-      ImGui::Separator();
-
-      float keyValues[VALUE_COUNT];
-      for (int i = 0; i < VALUE_COUNT; i++) {
-          keyValues[i] = keyState(i, currentChannel);
-      }
-
-      ImGui::PlotHistogram("Keys", keyValues, VALUE_COUNT, 0, NULL, 0, 1.0f, glm::vec2(450, 100));
-      ImGui::Separator();
-
-      float val = pitchBend(currentChannel);
-      ImGui::DragFloat("Pitch Bend", &val, 1.0f, -1.0f, 1.0f);
-
-      ImGui::End();
-  }, 1);
-
-
 
   return true;
 }
@@ -132,19 +131,18 @@ void MidiSystem::update() {
     int channel = rawEvent.status % 16;
 
     if (rawEvent.status >= 128 && rawEvent.status <= 159) {
-      m_events->fire<MidiNoteEvent>(
-          { channel, (rawEvent.status - 128) / 16 != 0,
-           rawEvent.data1, (float)(rawEvent.data2) / 127.0f});
+      m_events->fire<MidiNoteEvent>({channel, (rawEvent.status - 128) / 16 != 0,
+                                     rawEvent.data1,
+                                     (float)(rawEvent.data2) / 127.0f});
 
     } else if (rawEvent.status >= 176 && rawEvent.status <= 191) {
-      m_events->fire<MidiControlEvent>({ channel,
-                                        rawEvent.data1 - 1,
-                                        (float)(rawEvent.data2) / 127.0f});
+      m_events->fire<MidiControlEvent>(
+          {channel, rawEvent.data1 - 1, (float)(rawEvent.data2) / 127.0f});
     } else if (rawEvent.status >= 224 && rawEvent.status <= 239) {
 
-        uint16_t intVal = rawEvent.data1 | (rawEvent.data2 << 8);
-        float val = ((float)(intVal) / 32768.0f) * 2.0f - 1.0f;
-        m_events->fire<MidiPitchBendEvent>({ channel, val });
+      uint16_t intVal = rawEvent.data1 | (rawEvent.data2 << 8);
+      float val = ((float)(intVal) / 32768.0f) * 2.0f - 1.0f;
+      m_events->fire<MidiPitchBendEvent>({channel, val});
     }
   }
 }

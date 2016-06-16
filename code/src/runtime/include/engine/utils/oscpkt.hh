@@ -351,12 +351,12 @@ public:
       @endcode
   */
   ArgReader match(const std::string &test) const {
-    return ArgReader(*this, fullPatternMatch(address.c_str(), test.c_str()) ? OK_NO_ERROR : PATTERN_MISMATCH);
+    return ArgReader(*this, fullPatternMatch(test.c_str(), address.c_str()) ? OK_NO_ERROR : PATTERN_MISMATCH);
   }
   /** return true if the 'test' path matched by the first characters of addressPattern().
       For ex. ("/foo/bar").partialMatch("/foo/") is true */
   ArgReader partialMatch(const std::string &test) const {
-    return ArgReader(*this, partialPatternMatch(address.c_str(), test.c_str()) ? OK_NO_ERROR : PATTERN_MISMATCH);
+    return ArgReader(*this, partialPatternMatch(test.c_str(), address.c_str()) ? OK_NO_ERROR : PATTERN_MISMATCH);
   }
   ArgReader arg() const { return ArgReader(*this, OK_NO_ERROR); }
 
