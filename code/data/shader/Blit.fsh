@@ -41,7 +41,7 @@ vec3 Vignette(vec3 color) {
     float vignette = smoothstep(RADIUS, RADIUS-SOFTNESS, len);
 
     //apply the vignette with 50% opacity
-    return mix(color, color * vignette, 0.8);
+    return mix(color, color * vignette, 0.5);
 }
 
 
@@ -49,7 +49,7 @@ void main()
 {
   vec3 color = texture(uSamplerColor, vTexCoord).rgb;
 
-  /*color *= 4;  // Hardcoded Exposure Adjustment
+  color *= 1;  // Hardcoded Exposure Adjustment
 
   float ExposureBias = 2.0f;
   vec3 curr = Uncharted2Tonemap(ExposureBias*color);
@@ -60,7 +60,7 @@ void main()
   color = Vignette(color);
 
   vec3 retColor = pow(color, vec3(1.0/2.2));
-  retColor += vec3(rand(gl_FragCoord.xy) * 1.0/255 - 0.5/255);*/
+  retColor += vec3(rand(gl_FragCoord.xy) * 1.0/255 - 0.5/255);
         
-  oColor = vec4(color, 1);
+  oColor = vec4(retColor, 1);
 }

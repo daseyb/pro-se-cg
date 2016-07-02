@@ -4,6 +4,7 @@ uniform sampler2D uSamplerColor;
 uniform sampler2D uSamplerHistory;
 uniform sampler2D uSamplerNormalMotion;
 uniform sampler2D uSamplerDepth;
+uniform sampler2D uSamplerPrevDepth;
 
 uniform vec2 uOneOverColorSize;
 uniform vec2 uOneOverMotionSize;
@@ -19,23 +20,17 @@ const vec2 SAMPLE_OFFSETS[4] = vec2[] (
     vec2( 2.0, -2.0)
 );
 
+float linearizeDepth(float depth, float near, float far) {
+    return (2 * near) / (far + near - depth * (far - near));
+}
+
 
 void main()
 {
   vec2 motion =  texture(uSamplerNormalMotion, vTexCoord).zw;
   vec2 prevMotion = texture(uSamplerNormalMotion, vTexCoord - motion).zw;
-  float depth = texture(uSamplerDepth, vTexCoord).x;
   
-  for(int i = 0; i < 4; i++) {
-    vec2 sampleCoord = vTexCoord + SAMPLE_OFFSETS[i] * uOneOverMotionSize;
-    float depthSample = texture(uSamplerDepth, sampleCoord).x;
-    if(depthSample < depth) {
-      motion = texture(uSamplerNormalMotion, sampleCoord).zw;
-	    depth = depthSample;
-    }
-  }
-  
-  float factor = 0.8; //0.5 * max(0, 1.0-30.0 * sqrt(length(motion) - length(prevMotion)));
+  float factor = 0.9;
   
   vec4 current = texture(uSamplerColor, vTexCoord);
     
@@ -47,6 +42,13 @@ void main()
   
   vec4 history = texture(uSamplerHistory, vTexCoord - motion);  
 
+  float depth = linearizeDepth(texture(uSamplerDepth, vTexCoord).x, 0.01, 100);
+  float prevDepth = linearizeDepth(texture(uSamplerPrevDepth, vTexCoord-motion).x, 0.01, 100);
+
+  if(abs(depth-prevDepth) > 0.01) {
+      factor = 0;
+  }
+  
   vec4 minNeighbour = current;
   vec4 maxNeighbour = current;
   

@@ -39,6 +39,8 @@ struct RenderPass {
   Stack<LightData> submittedLights;
   glow::SharedFramebuffer compositingTarget;
   glow::SharedFramebuffer txaaHistory;
+  glow::SharedFramebuffer prevDepthBuffer;
+
   Entity camera;
   bool active;
   bool renderToTextureOnly;
@@ -105,9 +107,10 @@ public:
     auto target = Framebuffer::create({ { "oColor", createScreenspaceTexture(size, GL_RGBA32F) } });
 
     auto txaa = Framebuffer::create({ { "oColor", createScreenspaceTexture(size, GL_RGBA32F) } });
+    auto depth = Framebuffer::create({ { "oColor", createScreenspaceTexture(size, GL_R32F) } });
 
     m_passIds[name] = m_passes.size();
-    m_passes.push_back({kilobytes(4), kilobytes(4), kilobytes(4), target, txaa,
+    m_passes.push_back({kilobytes(4), kilobytes(4), kilobytes(4), target, txaa, depth,
                         cam, true, false, false});
   }
 

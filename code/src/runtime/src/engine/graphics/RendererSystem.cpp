@@ -52,9 +52,8 @@ struct Primitive {
 struct CameraData {
     glm::vec3 pos;
     float fov;
-    glm::vec4 forward;
-    glm::vec4 right;
-    glm::vec4 up;
+    glm::mat4 invProj;
+    glm::mat4 invView;
 };
 
 bool RendererSystem::startup() {
@@ -175,6 +174,8 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   currentOffset.y /= gBufferRes.y;
   currentOffset.z = 0;
 
+  currentOffset *= 0;
+
   auto aaProj = glm::perspectiveFov<float>(glm::radians(cam->fov), (float)windowSize.x, (float)windowSize.y, cam->near, cam->far);
   glm::mat4 viewMatrix = glm::inverse(camTransform);
   glm::mat4 viewMatrixInverse = camTransform;
@@ -190,7 +191,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   auto camRight = glm::normalize(glm::vec3(camTransform * glm::vec4{ 1, 0, 0, 0 }));
   auto camUp = glm::normalize(glm::vec3(camTransform * glm::vec4{ 0, 1, 0, 0 }));
 
-  CameraData camData { camPos, glm::radians(cam->fov), glm::vec4(camForward, 0.0f), glm::vec4(camRight, 0.0f), glm::vec4(camUp, 0.0f) };
+  CameraData camData { camPos, glm::radians(cam->fov), glm::inverse(aaProj), viewMatrixInverse };
   auto camDataBinding = m_camDataBuffer->bind();
   camDataBinding.setData(camData, GL_DYNAMIC_DRAW);
 
@@ -258,6 +259,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
       auto gBufferBind = m_gBufferObject->bind();
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+      glDisable(GL_CULL_FACE);
       glEnable(GL_DEPTH_TEST);
       glDepthMask(GL_TRUE);
       glDisable(GL_BLEND);
@@ -302,6 +304,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
       boundTxaaProg.setTexture("uSamplerNormalMotion", m_normalMotionBuffer);
       boundTxaaProg.setTexture("uSamplerDepth", m_depthBuffer);
+      boundTxaaProg.setTexture("uSamplerPrevDepth", pass.prevDepthBuffer->getColorAttachments()[0].texture);
 
       auto colorSize = glm::vec2(m_secondaryCompositingBuffer->getDim());
       boundTxaaProg.setUniform("uOneOverColorSize", glm::vec2(1.0) / colorSize);
@@ -311,6 +314,23 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
       boundVAO.drawRange(0, 4);
   }
+
+
+  // Copy Depth
+  {
+      auto depthSize = pass.prevDepthBuffer->getDim();
+      glViewport(0, 0, depthSize.x, depthSize.y);
+      glDisable(GL_BLEND);
+
+      auto boundFrameBuffer = pass.prevDepthBuffer->bind();
+      auto boundPassBlitProgram = m_passBlitProgram->use();
+      boundPassBlitProgram.setTexture(
+          "uSamplerColor",
+          m_depthBuffer);
+
+      boundVAO.drawRange(0, 4);
+  }
+
 
   if (!pass.renderToTextureOnly) {
     auto compositingSize = m_primaryCompositingBuffer->getDim();

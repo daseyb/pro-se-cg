@@ -37,10 +37,6 @@ bool OscSystem::startup() {
 
   m_serverThread = std::thread(&OscSystem::runServer, this);
 
-  m_events->subscribe<OscEvent>([&](const OscEvent &e) {
-    std::cout << "OSC Message: " << e.msg << "\n";
-  });
-
   return true;
 }
 

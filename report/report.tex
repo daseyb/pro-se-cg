@@ -39,7 +39,7 @@
 % Abstract
 
 \begin{abstract}
-Ray Tracing is next to rasterization the most widely used technique to generate discrete 2D images from continuous 3D scenes. Until recently ray tracing was too resource intensive to produce images in realtime, but advances in algorithms and hardware capabilities, most notably the introduction of GPGPU (General Purpose Graphics Processing Units), made near-realtime ray tracing feasible. In this report we will present some of the techniques which are used to achieve this.
+Ray Tracing is next to rasterization the most widely used technique to generate discrete 2D images from continuous 3D scenes. Until recently ray tracing was too resource intensive to produce images in realtime, but advances in algorithms and hardware capabilities, most notably the introduction of GPGPU (General Purpose Graphics Processing Units), made near-realtime ray tracing feasible. In this report I will present some of the techniques which are used to achieve this. Additionally I will provide an implementation of some of the presented techniques.
 \end{abstract}
 
 \keywords{Ray Tracing, Acceleration Structures, Realtime Rendering, GPGPU}
@@ -50,7 +50,7 @@ Ray Tracing is next to rasterization the most widely used technique to generate 
 
 \section{Introduction} \label{introduction}
 \subsection{Motivation}
-Ray tracing is a technique used to synthesize photo-realistic images from a 3D scene description. This is useful in many applications, from architectural visualization, games and movies to medical imaging. While the rendered images are of very high quality, the time needed to produce even one frame of animation is usually in the minutes or hours. Big animation studios like Disney or Pixar can afford super computers to render their movies\footnote{http://www.engadget.com/2014/10/18/disney-big-hero-6/}, but this is not feasible for smaller companies or individuals. Luckily, with the advent of general purpose computation on consumer grade GPUs most people have a small super computer sitting in their PCs. The new NVIDIA GTX 1080 for example can do about 9 TFLOP/s \footnote{https://twitter.com/nvidia/status/728771223522410496}, as many as the fastest super computer in the world in 2001\footnote{http://www.top500.org/}.
+Ray tracing is a technique used to synthesize photo-realistic images from a 3D scene description. This is useful in many applications, from architectural visualization, games and movies to medical imaging. While the rendered images are of very high quality, the time needed to produce even one frame of animation is usually measured minutes or hours. Big animation studios like Disney or Pixar can afford super computers to render their movies\footnote{http://www.engadget.com/2014/10/18/disney-big-hero-6/}, but this is not feasible for smaller companies or individuals. Luckily, with the advent of general purpose computation on consumer grade GPUs most people have a small super computer sitting in their PCs. The new NVIDIA GTX 1080 for example can do about 9 TFLOP/s \footnote{https://twitter.com/nvidia/status/728771223522410496}, as many as the fastest super computer in the world in 2001\footnote{http://www.top500.org/}.
 
 Real time ray tracing is appealing, especially in the context of creative work, because it allows artists to preview changes to the scene immediately. Where you previously had to change the position or color of a light and wait until the next day to review the difference you can now tweak scenes interactively. This leads to a lower turn around time on changes in visuals and thus higher quality results.
 
@@ -67,15 +67,15 @@ In this report I will:
 \item Describe a state of the art ray tracing algorithm. (Section \ref{path-tracing})
 \item Introduce techniques to reduce the time spent on ray-scene intersections. (Section \ref{acceleration})
 \item Explain how to use the fact that the algorithm is running at interactive frame rates to improve image quality. (Section \ref{noise})
-\item Give an overview over how to parallelize the construction of acceleration structures (Section \ref{gpu-adapting}) 
+\item Give an overview of how to parallelize the construction of acceleration structures (Section \ref{gpu-adapting}) 
 \item Present an implementation which incorporates the ideas described in this report. (Section \ref{results})
 \end{itemize}
 
 
 \subsection{A short history of ray tracing}
-The technique of tracing rays through a scene consisting of primitives and media has been known to the computational physics community for a long time. There it is mostly used to simulate the propagation of waves (e.g. shock waves of an earthquake) through a heterogeneous medium (e.g. the interior of the earth). \cite{GJI:GJI93}
+The technique of tracing rays through a scene consisting of primitives and media has been known to the computational physics community for a long time. There it is mostly used to simulate the propagation of waves (e.g. shock waves of an earthquake) through a heterogeneous medium (e.g. the interior of the earth) \cite{GJI:GJI93}.
 
-It was first described in relation to computer graphics by Arthur Appel in 1968. At the time the common method to visualize three dimensional scenes was to synthesize two dimensional line and point drawings. Appel recognized the importance of shading and shadow casting in conveying shape and spatial relations. In his paper "Some techniques for shading machine renderings of solids" he proposes a method to realize this shading by casting rays originating from the viewers' position through each pixel on the viewing plane and calculating the first point of intersection with the scene. To determine shading he casts a second ray from this intersection point to the light source. Appel's technique was very compute intensive for its time, but already illustrated the power of ray tracing to generate realistic images using a relatively simple algorithm. \cite{Appel68}
+It was first described in relation to computer graphics by Arthur Appel in 1968  \cite{Appel68}. At the time the common method to visualize three dimensional scenes was to synthesize two dimensional line and point drawings. Appel recognized the importance of shading and shadow casting in conveying shape and spatial relations. In his paper "Some techniques for shading machine renderings of solids" he proposes a method to realize this shading by casting rays originating from the viewers' position through each pixel on the viewing plane and calculating the first point of intersection with the scene. To determine shading he casts a second ray from this intersection point to the light source. Appel's technique was very compute intensive for its time, but already illustrated the power of ray tracing to generate realistic images using a relatively simple algorithm.
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -85,7 +85,7 @@ It was first described in relation to computer graphics by Arthur Appel in 1968.
   \label{fig:appel_tracing}
 \end{figure}
 
-The next major contribution to ray tracing came from Turner Whitted of Bell Laboratories in 1980. In his landmark paper "An Improved Illumination Model for Shaded Display" \cite{Whitted:1980} he describes the algorithm that would become known as Recursive, or Whitted, Ray Tracing. So far ray tracing was only used to compute local illumination at the first point of intersection and the only secondary rays that were cast were shadow rays. This produced a fairly good approximation for diffuse surfaces, but was lacking in scenes with very reflective objects. Whitted took the concept of casting secondary rays and extended it to reflections and refractions. For each intersection point he proposed to not only compute a shadow ray in the direction of each light source, but also recursively compute the color of incoming reflected and refracted light. This technique produced impressive looking results, but Whitted himself acknowledged that it did not provide a solution to global illumination since objects could not act as light sources themselves and diffuse interreflections where not accounted for.
+The next major contribution to ray tracing came from Turner Whitted of Bell Laboratories in 1980. In his landmark paper "An Improved Illumination Model for Shaded Display" \cite{Whitted:1980} he described the algorithm that would become known as Recursive, or Whitted, Ray Tracing. Previously ray tracing was only used to compute local illumination at the first point of intersection and the only secondary rays that were cast were shadow rays. This produced a fairly good approximation for diffuse surfaces, but was lacking in scenes with very reflective objects. Whitted took the concept of casting secondary rays and extended it to reflections and refractions. For each intersection point he proposed to not only compute a shadow ray in the direction of each light source, but also recursively compute the color of incoming reflected and refracted light. This technique produced impressive looking results, but Whitted himself acknowledged that it did not provide a solution to global illumination since objects could not act as light sources themselves and diffuse interreflections were not accounted for.
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -96,14 +96,14 @@ The next major contribution to ray tracing came from Turner Whitted of Bell Labo
 \end{figure}
 
 
-Over the next years many different approaches to solve this issue where proposed and in 1986 James T. Kajiya published a paper titled "The Rendering Equation"  \cite{Kajiya:1986} in which he presents an equation to describe the propagation of light in a scene. It is general enough to describe all optical phenomena we care about in computer graphics and this made it possible to classify rendering algorithms by how well they approximate a solution to the rendering equation.
+Over the following years many different approaches to solve this issue were proposed and in 1986 James T. Kajiya published a paper titled "The Rendering Equation"  \cite{Kajiya:1986} in which he presents an equation to describe the propagation of light in a scene. It is general enough to describe all optical phenomena we care about in computer graphics and this made it possible to classify rendering algorithms by how well they approximate a solution to the rendering equation Eq. \eqref{eq:rendering-equation}.
 
 \begin{equation} \label{eq:rendering-equation}
 I(x,x')= \overbrace{g(x,x')}^{\mathclap{\text{Geometry Term}}}
          [
          \underbrace{\epsilon(x,x')}_{\mathclap{\text{Emission}}}
          + \underbrace{
-         \int_{S}{\overbrace{p(x,x',x'')}^{\mathclap{\text{BRDF}}}
+         \int_{S}{\overbrace{\rho(x,x',x'')}^{\mathclap{\text{BRDF}}}
                   \overbrace{I(x',x'') }^{\mathclap{\text{Incoming light}}} dx''}
          }_{\mathclap{\text{Light reflected at $x'$ in direction $\overrightarrow{x'x}$}}} ]
 \end{equation}
@@ -113,7 +113,7 @@ The main difference between rendering algorithms is how they approach the evalua
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Second Section
 \section{Overview over the path tracing algorithm} \label{path-tracing}
-Path tracing is an algorithm which solves the integral in \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". \cite{veach1997robust} Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The final value of a path sample is calculated using Equation \eqref{eq:rendering-equation}, recursively evaluating it for $x_0$ to $x_n$. 
+Path tracing is an algorithm which solves the integral in Eq. \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". \cite{veach1997robust} Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The final value of a path sample is calculated using Equation \eqref{eq:rendering-equation}, recursively evaluating it from $x_0$ to $x_n$. 
 
 \begin{figure}[htb!]
   \centering

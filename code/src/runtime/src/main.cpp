@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
   importer.setGenerateUVCoords(false);
 
   Geometry teapotGeom = {importer.load("data/geometry/teapot.obj")};
-  Geometry testSceneGeom = {importer.load("data/geometry/test_scene.blend")};
+  Geometry testSceneGeom = {importer.load("data/geometry/test_scene.obj")};
   Geometry teddyGeom = {importer.load("data/geometry/teddy.obj")};
   Geometry coornellBoxGeom = {
       importer.load("data/geometry/CornellBox-Original.obj")};
@@ -165,6 +165,7 @@ int main(int argc, char *argv[]) {
   });
 
   float teapotScale = 1.0f;
+  float boxScale = 1.0f;
 
   events.subscribe<SimulateEvent>([&](const SimulateEvent &e) {
     glm::vec3 moveDir{0, 0, 0};
@@ -187,13 +188,22 @@ int main(int argc, char *argv[]) {
     }
 
     if (teapotScale > 1.0f) {
-      teapotScale -= (teapotScale - 1.0f) * e.dt;
+      teapotScale -= (teapotScale - 1.0f) * e.dt * 10.0f;
     }
+
+    if (boxScale > 1.0f) {
+        boxScale -= (boxScale - 1.0f) * e.dt * 10.0f;
+    }
+
+    
 
     teapotSideTransform->position =
         glm::vec3(sinf(e.totalTime), 0.0f, cosf(e.totalTime)) * 5.0f;
-    teapotSideTransform->scale = glm::vec3(teapotScale);
-  });
+    teapotSideTransform->scale = glm::vec3(teapotScale + sinf(e.totalTime*10.0f)*midi.controlValue(0, 0)*0.5f);
+
+    boxTrans->scale = glm::vec3(boxScale + midi.controlValue(1)*2.5f);
+
+  }); 
 
   events.subscribe<MidiNoteEvent>([&](const MidiNoteEvent &e) {
     if (!e.on) {
@@ -201,8 +211,12 @@ int main(int argc, char *argv[]) {
     }
 
     switch (e.noteIndex) {
-    case 36:
-      teapotScale = 4.0f;
+    case 60:
+      teapotScale = 1.0f + 4.0 * e.velocity;
+      break;
+    case 61:
+      boxScale = 1.0f + 0.5 * e.velocity;
+      break;
     default:
       break;
     }

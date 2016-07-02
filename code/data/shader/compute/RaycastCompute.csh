@@ -20,9 +20,9 @@ uniform int uMaxBounces = 2;
 const vec3 lightPos = vec3(0, 8, 10);
 const vec3 dielecSpec = vec3(0.0);
 
-const Material[] materials = Material[]( Material( vec3(1, 1, 1), dielecSpec, 0.3, 0.0, 1.0) );
+const Material[] materials = Material[]( Material( vec3(0.3, 0.4, 0.4), dielecSpec, 0.9, 0.0, 1.0) );
 const SphereLight[] lights = SphereLight[](
-  SphereLight( vec3(0, 8, 8), 2.0, vec3(1.0, 0.9, 0.9) ),
+  SphereLight( vec3(0, 8, 8), 2.0, vec3(1.0, 0.3, 0.9) ),
   SphereLight( vec3(-8, 8, 8), 1.0, vec3(0.9, 0.9, 1.0) )
 );
 
@@ -35,26 +35,11 @@ layout(std140, binding = 1) buffer PrimitiveBuffer {
 layout(std140, binding = 2) buffer CameraBuffer {
    vec3 pos;
    float fov;
-   vec4 forward;
-   vec4 right;
-   vec4 up;
+   mat4 invProj;
+   mat4 invView;
 } cam;
 
-Ray generateRay(float x, float y, float w, float h) {
-  float fovx = cam.fov;       // Horizontal FOV
-  float fovy = fovx * h / w;  // Vertical FOV
 
-  float halfWidth =  w * 0.5f;
-  float halfHeight = h * 0.5f;
-
-  float alpha = tan(fovx * 0.5f) * ((x - halfWidth) / halfWidth);
-  float beta = tan(fovy * 0.5f) * ((halfHeight - y) / halfHeight);
-  
-  Ray result;
-  result.pos = cam.pos;
-  result.dir = normalize(cam.right.xyz * alpha * 2 - cam.up.xyz * beta * 2 + cam.forward.xyz);
-  return result;
-}
 
 // =============================================================================
 // Helper
@@ -142,6 +127,26 @@ vec3 directionUniform(vec3 normal, inout uint random) {
   dir *= sign(dot(dir, normal));
 
   return dir;
+}
+
+Ray generateRay(vec2 screenPos, vec2 screenSize, inout uint random) {
+  vec2 subpixel = uniformVec2(vec2(-1), vec2(1), random) / screenSize;
+
+  vec4 near = cam.invProj * vec4(screenPos * 2 - 1 + subpixel, 0.0, 1);
+  vec4 far  = cam.invProj * vec4(screenPos * 2 - 1 + subpixel, 0.5, 1);
+
+  near /= near.w;
+  far  /= far.w;
+
+  near = cam.invView * near;
+  far  = cam.invView * far;
+
+  vec3 dir = normalize((far - near).xyz);
+  
+  Ray result;
+  result.pos = cam.pos;
+  result.dir = dir;
+  return result;
 }
 
 // =============================================================================
@@ -349,18 +354,16 @@ void main() {
   
   if(storePos.x >= imgSize.x || storePos.y >= imgSize.y) return;
   
-  vec2 offset = uniformVec2(vec2(-0.5f), vec2(0.5f), random); 
-  
-  Ray r = generateRay(storePos.x + offset.x, storePos.y + offset.y, imgSize.x, imgSize.y);
+  Ray r = generateRay(vec2(storePos)/vec2(imgSize), imgSize, random);
   
   Payload pl;
   pl.col = vec4(0, 0, 0, 1);
   
-  for(int i = 0; i < 5; i++) {
+  for(int i = 0; i < 2; i++) {
     pl.col.rgb += trace(r, random);
   }
   
-  pl.col.rgb *= 1.0/5;
+  pl.col.rgb *= 1.0/2;
   
   imageStore(backBuffer, storePos, pl.col);
  }

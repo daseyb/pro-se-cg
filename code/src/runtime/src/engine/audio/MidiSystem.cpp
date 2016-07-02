@@ -26,7 +26,9 @@ bool MidiSystem::startup() {
   }
 
   m_events->subscribe<MidiNoteEvent>([&](const MidiNoteEvent &e) {
-    m_keyStates[e.channel][e.noteIndex].isDown = e.on && e.velocity != 0.0f;
+      glow::debug() << "Midi Note: " << e.noteIndex << " On:" << e.on  << " Channel: " << e.channel << "\n";
+
+      m_keyStates[e.channel][e.noteIndex].isDown = e.on && e.velocity != 0.0f;
     m_keyStates[e.channel][e.noteIndex].velocity = e.velocity;
   });
 
@@ -97,9 +99,21 @@ bool MidiSystem::startup() {
 
   const PmDeviceInfo *defaultDeviceInfo = Pm_GetDeviceInfo(defaultDeviceId);
   glow::debug() << "Default Input Device Name: " << defaultDeviceInfo->name
-                << "\n";
+      << "\n";
+
+  for (PmDeviceID i = 0; i < deviceCount; i++) {
+    const PmDeviceInfo *deviceInfo = Pm_GetDeviceInfo(i);
+    glow::debug() << "Input Device " << i << " Name: " << deviceInfo->name
+                  << ", Input: " << deviceInfo->input
+                  << ", Output: " << deviceInfo->output
+                  << ", Opened: " << deviceInfo->opened << "\n";
+  }
 
   error = Pm_OpenInput(&m_inputStream, defaultDeviceId, NULL, 32, NULL, NULL);
+  if (error && deviceCount > 1) {
+      error = Pm_OpenInput(&m_inputStream, defaultDeviceId + 1, NULL, 32, NULL, NULL);
+  }
+
   if (error) {
     glow::error() << Pm_GetErrorText(error) << "\n";
     return true;
