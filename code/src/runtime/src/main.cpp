@@ -123,15 +123,15 @@ int main(int argc, char *argv[]) {
 
   Entity light01 = sceneGraph.create();
   light01.assign<Transform>()->position = glm::vec3(-11, 7, 8);
-  light01.assign<Light>(glm::vec4(0.2f, 1.0f, 0.6f, 1.0f), 0.8);
+  light01.assign<Light>(glm::vec4(0.2f, 1.0f, 0.6f, 40), 0.8);
 
   Entity light02 = sceneGraph.create();
   light02.assign<Transform>()->position = glm::vec3(-11, 7, 1);
-  light02.assign<Light>(glm::vec4(1.0, 0.8, 0.6, 1.0f), 0.8);
+  light02.assign<Light>(glm::vec4(1.0, 0.8, 0.6, 40), 0.8);
 
   Entity light03 = sceneGraph.create();
   light03.assign<Transform>()->position = glm::vec3(-11, 22, 8);
-  light03.assign<Light>(glm::vec4(0.6, 0.7, 1.0, 1.0f), 0.2);
+  light03.assign<Light>(glm::vec4(0.6, 0.7, 1.0, 40), 0.2);
 
   bool keyState[SDL_NUM_SCANCODES] = {};
 

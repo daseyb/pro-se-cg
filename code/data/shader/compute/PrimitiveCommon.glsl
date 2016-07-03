@@ -10,7 +10,8 @@ struct Primitive {
   Vertex b;
   Vertex c;
   uint matId;
-  vec3 pad_;
+  uint sortCode;
+  vec2 pad_;
 };
 
 struct Ray {

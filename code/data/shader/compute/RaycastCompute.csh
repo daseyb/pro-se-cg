@@ -129,6 +129,26 @@ vec3 directionUniform(vec3 normal, inout uint random) {
   return dir;
 }
 
+vec3 sampleSphereSolidAngle(vec3 x, vec3 sPos, float sRad, out float p, inout uint random) {
+      vec3 sw = sPos - x;
+      vec3 su = normalize(cross(abs(sw.x) > .1 ? vec3(0, 1, 0) :  vec3(1, 0, 0), sw));
+      vec3 sv = cross(sw, su);
+
+      float cos_a_max = sqrt(1.0 - sRad * sRad / dot(sw,sw));
+      float eps1 = uniformFloat(0, 1, random);
+      float eps2 = uniformFloat(0, 1, random);
+      
+      float cos_a = 1 - eps1 + eps1 * cos_a_max;
+      float sin_a = sqrt(1 - cos_a * cos_a);
+      float phi = 2 * PI * eps2;
+      vec3 l = su * cos(phi) * sin_a + sv * sin(phi) * sin_a + sw * cos_a;
+      l = normalize(l);
+      
+      p = 2 * (1 - cos_a_max);
+      
+      return l;
+}
+
 Ray generateRay(vec2 screenPos, vec2 screenSize, inout uint random) {
   vec2 subpixel = uniformVec2(vec2(-1), vec2(1), random) / screenSize;
 
@@ -248,7 +268,7 @@ bool intersect(in Ray r, float maxDist, out HitInfo hit) {
 
 // direct illu at a given point
 // inDir points TOWARDS the surface
-vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, uint random) {
+vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, inout uint random) {
   HitInfo intr;
   vec3 color = vec3(0);
 
@@ -263,6 +283,7 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, uint ra
     float lightDis = length(L);
     L /= lightDis;
     
+    float p = 1.0/(lightDis * lightDis);
     Ray r;
     r.pos = pos;
     r.dir = L;
@@ -272,10 +293,7 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, uint ra
     }
 
     // diffuse
-    color += max(0.0, dot(L, N)) * l.color.rgb * diffuseColor;
-
-    // specular
-    color += shadingGGX(N, V, L, material.roughness, specularColor);
+    color += max(0.0, dot(L, N)) * l.color.rgb * l.color.a * p;
   }
 
   return color;
@@ -285,13 +303,11 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, uint ra
 // tracing
 vec3 trace(Ray r, inout uint random) {
   HitInfo intr;
-  int bounces = uMaxBounces;
   
   vec3 color = vec3(0);
   vec3 weight = vec3(1);
 
-  for (int b = 0; b < bounces; ++b) {
-    // step 1: intersect with scene
+  for (int b = 0; b < uMaxBounces; ++b) {
     if (!intersect(r, MAX_DISTANCE, intr)) {
       break;
     }
@@ -326,7 +342,7 @@ void main() {
   }
   
   pl.col.rgb *= 1.0/1;
-  pl.col.rgb = igamma(pl.col.rgb);
+  pl.col.rgb = pl.col.rgb;
   
   imageStore(backBuffer, storePos, pl.col);
  }

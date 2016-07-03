@@ -48,7 +48,8 @@ struct Primitive {
 	Vertex b;
 	Vertex c;
     uint32_t matId;
-    glm::vec3 pad__;
+    uint32_t sortCode;
+    glm::vec2 pad__;
 };
 
 struct CameraData {
@@ -111,6 +112,9 @@ bool RendererSystem::startup() {
   m_txaaProg = Program::createFromFile("TXAA");
   m_raycastComputeProgram = Program::createFromFile("compute/RaycastCompute.csh");
   m_motionVectorProgram = Program::createFromFile("MotionVectors");
+  m_sortPrimitiveProgram = Program::createFromFile("compute/SortPrimitive.csh");
+
+  m_sortPrimitiveProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
 
   m_raycastComputeProgram->setShaderStorageBuffer("CameraBuffer", m_camDataBuffer);
   m_raycastComputeProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
@@ -241,6 +245,9 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
               glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, idxBuffer->getObjectName());
               glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_primitiveBuffer->getObjectName());
 
+              boundCopyProgram.setUniform("sceneMin", glm::vec3(-1000.0));
+              boundCopyProgram.setUniform("sceneMax", glm::vec3( 1000.0));
+
               boundCopyProgram.setUniform("materialId", (int)i);
               boundCopyProgram.setUniform("model2World", drawCall.thisRenderTransform);
               boundCopyProgram.setUniform("model2WorldInvTransp", glm::inverseTranspose(drawCall.thisRenderTransform));
@@ -251,6 +258,12 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
               totalPrimitiveCount += drawPrimCount;
           }
       }
+  }
+
+  {
+      auto boundSortProgram = m_sortPrimitiveProgram->use();
+      boundSortProgram.setUniform("primitiveCount", (int)totalPrimitiveCount);
+      boundSortProgram.compute(totalPrimitiveCount / 8 + 1);
   }
 
   {
