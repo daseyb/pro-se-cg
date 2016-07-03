@@ -9,6 +9,7 @@
 
 bool MidiSystem::startup() {
   RESOLVE_DEPENDENCY(m_events);
+  RESOLVE_DEPENDENCY(m_settings);
 
   for (int i = 0; i < CHANNEL_COUNT; i++) {
     m_pitchBendValues[i] = 0;
@@ -101,18 +102,23 @@ bool MidiSystem::startup() {
   glow::debug() << "Default Input Device Name: " << defaultDeviceInfo->name
       << "\n";
 
+  auto defaultMidiSystemName = m_settings->getDefaultMidiInputDevice();
+
+  PmDeviceID deviceID = defaultDeviceId;
+
   for (PmDeviceID i = 0; i < deviceCount; i++) {
     const PmDeviceInfo *deviceInfo = Pm_GetDeviceInfo(i);
     glow::debug() << "Input Device " << i << " Name: " << deviceInfo->name
                   << ", Input: " << deviceInfo->input
                   << ", Output: " << deviceInfo->output
                   << ", Opened: " << deviceInfo->opened << "\n";
+
+    if (deviceInfo->input && std::string(deviceInfo->name) == defaultMidiSystemName) {
+        deviceID = i;
+    }
   }
 
-  error = Pm_OpenInput(&m_inputStream, defaultDeviceId, NULL, 32, NULL, NULL);
-  if (error && deviceCount > 1) {
-      error = Pm_OpenInput(&m_inputStream, defaultDeviceId + 1, NULL, 32, NULL, NULL);
-  }
+  error = Pm_OpenInput(&m_inputStream, deviceID, NULL, 32, NULL, NULL);
 
   if (error) {
     glow::error() << Pm_GetErrorText(error) << "\n";

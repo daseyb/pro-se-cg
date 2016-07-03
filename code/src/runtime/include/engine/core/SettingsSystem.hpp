@@ -25,6 +25,7 @@ private:
   std::string m_geometryPath;
   std::string m_shaderPath;
   std::string m_soundPath;
+  std::string m_midiInputDevice;
 
   std::string m_configFilePath;
 
@@ -63,6 +64,7 @@ public:
   inline QualitySetting getQualitySetting() const { return m_qualitySetting; }
   inline std::string getDefaultScene() const { return m_defaultScene; }
   inline std::string getDefaultPlanetType() const { return m_defaultPlanetType; }
+  inline std::string getDefaultMidiInputDevice() const { return m_midiInputDevice; }
 
   inline std::vector<PlanetMetaData> getAvailablePlanets() const { return m_availablePlanets; }
   inline PlanetMetaData getPlanet(std::string name) const { 

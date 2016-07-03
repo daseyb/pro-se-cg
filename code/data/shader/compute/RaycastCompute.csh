@@ -283,7 +283,7 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, inout u
     float lightDis = length(L);
     L /= lightDis;
     
-    float p = 1.0/(lightDis * lightDis);
+
     Ray r;
     r.pos = pos;
     r.dir = L;
@@ -292,6 +292,7 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, inout u
       continue;
     }
 
+    float p = 1.0/(lightDis * lightDis);
     // diffuse
     color += max(0.0, dot(L, N)) * l.color.rgb * l.color.a * p;
   }

@@ -51,6 +51,7 @@ bool SettingsSystem::startup() {
   m_vsyncEnabled = true;
   m_targetFps = 60;
   m_defaultScene = "Default";
+  m_midiInputDevice = "Default";
 
 #define VALIDATE_TYPE(p, type) if(!p.second.is<type>()) { std::cout << "Warning: Setting \"" << i.first << "\": " << i.second << " is not of expected type " #type "." << std::endl; continue; }
 
@@ -83,6 +84,9 @@ bool SettingsSystem::startup() {
     } else if (i.first == "scene") {
       VALIDATE_TYPE(i, std::string);
       m_defaultScene = i.second.get<std::string>();
+    } else if (i.first == "midiInputDevice") {
+      VALIDATE_TYPE(i, std::string);
+      m_midiInputDevice = i.second.get<std::string>();
     } else {
       std::cout << "Warning: Unknown setting \"" << i.first << "\"." << std::endl;
     }

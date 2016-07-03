@@ -3,6 +3,8 @@
 #include <engine/core/Context.hpp>
 #include <engine/core/System.hpp>
 #include <engine/events/EventSystem.hpp>
+#include <engine/core/SettingsSystem.hpp>
+
 #include <portmidi.h>
 
 struct MidiKeyState {
@@ -25,6 +27,7 @@ private:
     static const int VALUE_COUNT = 127;
 
     EventSystem* m_events;
+    SettingsSystem* m_settings;
 
     PortMidiStream* m_inputStream;
 

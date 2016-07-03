@@ -121,17 +121,17 @@ int main(int argc, char *argv[]) {
   icosphereLight.assign<Light>(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.1);*/
 
 
-  Entity light01 = sceneGraph.create();
-  light01.assign<Transform>()->position = glm::vec3(-11, 7, 8);
-  light01.assign<Light>(glm::vec4(0.2f, 1.0f, 0.6f, 40), 0.8);
+  Entity light01Ent = sceneGraph.create();
+  light01Ent.assign<Transform>()->position = glm::vec3(-11, 7, 8);
+  auto light01 = light01Ent.assign<Light>(glm::vec4(0.2f, 1.0f, 0.6f, 40), 0.8);
 
-  Entity light02 = sceneGraph.create();
-  light02.assign<Transform>()->position = glm::vec3(-11, 7, 1);
-  light02.assign<Light>(glm::vec4(1.0, 0.8, 0.6, 40), 0.8);
+  Entity light02Ent = sceneGraph.create();
+  light02Ent.assign<Transform>()->position = glm::vec3(-11, 7, 1);
+  auto light02 = light02Ent.assign<Light>(glm::vec4(1.0, 0.8, 0.6, 40), 0.8);
 
-  Entity light03 = sceneGraph.create();
-  light03.assign<Transform>()->position = glm::vec3(-11, 22, 8);
-  light03.assign<Light>(glm::vec4(0.6, 0.7, 1.0, 40), 0.2);
+  Entity light03Ent = sceneGraph.create();
+  light03Ent.assign<Transform>()->position = glm::vec3(-11, 22, 8);
+  auto light03 = light03Ent.assign<Light>(glm::vec4(0.6, 0.7, 1.0, 40), 0.2);
 
   bool keyState[SDL_NUM_SCANCODES] = {};
 
@@ -225,9 +225,13 @@ int main(int argc, char *argv[]) {
 
     teapotSideTransform->position =
         glm::vec3(sinf(e.totalTime), 0.0f, cosf(e.totalTime)) * 5.0f;
-    teapotSideTransform->scale = glm::vec3(teapotScale + sinf(e.totalTime*10.0f)*midi.controlValue(0, 0)*0.5f);
+    teapotSideTransform->scale = glm::vec3(teapotScale + sinf(e.totalTime*10.0f)*midi.controlValue(0)*0.5f);
 
     boxTrans->scale = glm::vec3(boxScale + midi.controlValue(1)*2.5f);
+
+    light01->color.a = midi.controlValue(4) * 150;
+    light02->color.a = midi.controlValue(5) * 150;
+    light03->color.a = midi.controlValue(6) * 150;
 
   }); 
 

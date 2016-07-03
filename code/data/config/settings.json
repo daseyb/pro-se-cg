@@ -6,4 +6,5 @@
   "quality": "high",
   "ssao": false,
   "scene": "AtmosphereTest",
+  "midiInputDevice": "MPKmini2",
 }
