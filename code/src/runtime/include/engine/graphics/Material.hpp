@@ -1,8 +1,10 @@
 #pragma once
-#include <engine/graphics/RenderQueue.hpp>
 
 struct Material {
-  glm::vec4 tintColor;
-  glm::vec4 emissiveColor;
-  RenderQueue queue;
+  glm::vec3 diffuseColor;
+  float roughness;
+  glm::vec3 emissiveColor;
+  float refractiveness;
+  glm::vec3 specularColor;
+  float eta;
 };

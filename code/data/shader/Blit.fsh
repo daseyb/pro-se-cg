@@ -24,7 +24,7 @@ vec3 Uncharted2Tonemap(vec3 x)
 }
 
 //RADIUS of our vignette, where 0.5 results in a circle fitting the screen
-const float RADIUS = 0.65;
+const float RADIUS = 0.75;
 
 //softness of our vignette, between 0.0 and 1.0
 const float SOFTNESS = 0.35;
@@ -41,7 +41,7 @@ vec3 Vignette(vec3 color) {
     float vignette = smoothstep(RADIUS, RADIUS-SOFTNESS, len);
 
     //apply the vignette with 50% opacity
-    return mix(color, color * vignette, 0.5);
+    return mix(color, color * vignette, 0.3);
 }
 
 
@@ -59,8 +59,8 @@ void main()
 
   color = Vignette(color);
 
-  vec3 retColor = pow(color, vec3(1.0/2.2));
-  retColor += vec3(rand(gl_FragCoord.xy) * 1.0/255 - 0.5/255);
+  //color = pow(color, vec3(2.2));
+  color += vec3(rand(gl_FragCoord.xy) * 1.0/255 - 0.5/255);
         
-  oColor = vec4(retColor, 1);
+  oColor = vec4(color, 1);
 }

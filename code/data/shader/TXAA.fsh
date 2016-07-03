@@ -45,7 +45,7 @@ void main()
   float depth = linearizeDepth(texture(uSamplerDepth, vTexCoord).x, 0.01, 100);
   float prevDepth = linearizeDepth(texture(uSamplerPrevDepth, vTexCoord-motion).x, 0.01, 100);
 
-  if(abs(depth-prevDepth) > 0.01) {
+  if(abs(depth-prevDepth) > 0.015) {
       factor = 0;
   }
   

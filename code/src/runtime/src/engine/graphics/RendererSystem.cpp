@@ -47,6 +47,8 @@ struct Primitive {
 	Vertex a;
 	Vertex b;
 	Vertex c;
+    uint32_t matId;
+    glm::vec3 pad__;
 };
 
 struct CameraData {
@@ -54,6 +56,12 @@ struct CameraData {
     float fov;
     glm::mat4 invProj;
     glm::mat4 invView;
+};
+
+struct GPULight {
+    glm::vec3 pos;
+    float size;
+    glm::vec4 color;
 };
 
 bool RendererSystem::startup() {
@@ -72,9 +80,14 @@ bool RendererSystem::startup() {
 
   m_camDataBuffer = ShaderStorageBuffer::create();
   m_primitiveBuffer = ShaderStorageBuffer::create();
-  auto boundSSBO = m_primitiveBuffer->bind();
-  boundSSBO.reserve(sizeof(Primitive) * MAX_PRIMITIVE_COUNT, GL_DYNAMIC_DRAW);
-	  
+  {
+      auto boundSSBO = m_primitiveBuffer->bind();
+      boundSSBO.reserve(sizeof(Primitive) * MAX_PRIMITIVE_COUNT, GL_DYNAMIC_DRAW);
+  }
+
+  m_lightDataBuffer = ShaderStorageBuffer::create();
+  m_materialDataBuffer = ShaderStorageBuffer::create();
+
   // Set up framebuffer for deferred shading
   auto windowSize = m_window->getSize();
   glViewport(0, 0, windowSize.x, windowSize.y);
@@ -101,10 +114,10 @@ bool RendererSystem::startup() {
 
   m_raycastComputeProgram->setShaderStorageBuffer("CameraBuffer", m_camDataBuffer);
   m_raycastComputeProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
+  m_raycastComputeProgram->setShaderStorageBuffer("LightBuffer", m_lightDataBuffer);
+  m_raycastComputeProgram->setShaderStorageBuffer("MaterialBuffer", m_materialDataBuffer);
 
   m_copyPrimitiveProgram = Program::createFromFile("compute/CopyPrimitive.csh");
-
-  //m_copyPrimitiveProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
 
   m_events->subscribe<ResizeWindowEvent>([this](const ResizeWindowEvent &e) {
     glViewport(0, 0, (int)e.newSize.x, (int)e.newSize.y);
@@ -187,9 +200,6 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
 
   auto camPos = glm::vec3(camTransform * glm::vec4{ 0, 0, 0, 1 });
-  auto camForward = glm::normalize(glm::vec3(camTransform * glm::vec4{ 0, 0, -1, 0 }));
-  auto camRight = glm::normalize(glm::vec3(camTransform * glm::vec4{ 1, 0, 0, 0 }));
-  auto camUp = glm::normalize(glm::vec3(camTransform * glm::vec4{ 0, 1, 0, 0 }));
 
   CameraData camData { camPos, glm::radians(cam->fov), glm::inverse(aaProj), viewMatrixInverse };
   auto camDataBinding = m_camDataBuffer->bind();
@@ -197,11 +207,15 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
   size_t totalPrimitiveCount = 0;
 
+  std::vector<Material> materials;
+
   {
       auto boundCopyProgram = m_copyPrimitiveProgram->use();
 
       for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
           auto drawCall = pass.submittedDrawCallsOpaque[i];
+
+          materials.push_back(drawCall.material);
 
           // No geometry loaded for the draw call
           if (!drawCall.geometry.vao) {
@@ -227,6 +241,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
               glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, idxBuffer->getObjectName());
               glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_primitiveBuffer->getObjectName());
 
+              boundCopyProgram.setUniform("materialId", (int)i);
               boundCopyProgram.setUniform("model2World", drawCall.thisRenderTransform);
               boundCopyProgram.setUniform("model2WorldInvTransp", glm::inverseTranspose(drawCall.thisRenderTransform));
               boundCopyProgram.setUniform("currentPrimitiveCount", (int)drawPrimCount);
@@ -239,10 +254,32 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   }
 
   {
+      auto boundBuffer = m_materialDataBuffer->bind();
+      boundBuffer.setData(materials);
+  }
+
+  {
+      std::vector<GPULight> lights;
+      for (size_t i = 0; i < pass.submittedLights.size(); i++) {
+          auto light = pass.submittedLights[i];
+
+          auto trans = interpolate(light.lastSimulateTransform, light.thisSimulateTransform, interp);
+          auto pos = glm::vec3(trans * glm::vec4{ 0, 0, 0, 1 });
+          lights.push_back({ pos, light.size, light.color });
+      }
+
+      {
+          auto boundBuffer = m_lightDataBuffer->bind();
+          boundBuffer.setData(lights);
+      }
+  }
+
+  {
       auto boundRaycastProgram = m_raycastComputeProgram->use();
 
       boundRaycastProgram.setUniform("pixelOffset", glm::vec2(currentOffset));
       boundRaycastProgram.setUniform("primitiveCount", (int)totalPrimitiveCount);
+      boundRaycastProgram.setUniform("lightCount", (int)pass.submittedLights.size());
       boundRaycastProgram.setUniform("totalTime", (float)totalTime);
       boundRaycastProgram.setImage(0, m_secondaryCompositingBuffer->getColorAttachments()[0].texture, GL_WRITE_ONLY);
 

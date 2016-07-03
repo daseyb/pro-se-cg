@@ -13,18 +13,12 @@ struct Payload {
 
 uniform vec2 pixelOffset;
 uniform int primitiveCount;
+uniform int lightCount;
+
 uniform float totalTime;
 uniform uint uSeed;
-uniform int uMaxBounces = 2;
 
-const vec3 lightPos = vec3(0, 8, 10);
-const vec3 dielecSpec = vec3(0.0);
-
-const Material[] materials = Material[]( Material( vec3(0.3, 0.4, 0.4), dielecSpec, 0.9, 0.0, 1.0) );
-const SphereLight[] lights = SphereLight[](
-  SphereLight( vec3(0, 8, 8), 2.0, vec3(1.0, 0.3, 0.9) ),
-  SphereLight( vec3(-8, 8, 8), 1.0, vec3(0.9, 0.9, 1.0) )
-);
+const int uMaxBounces = 3;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 
@@ -39,7 +33,13 @@ layout(std140, binding = 2) buffer CameraBuffer {
    mat4 invView;
 } cam;
 
+layout(std140, binding = 3) buffer LightBuffer {
+  SphereLight lights[];
+};
 
+layout(std140, binding = 4) buffer MaterialBuffer {
+  Material materials[];
+};
 
 // =============================================================================
 // Helper
@@ -232,9 +232,8 @@ bool intersect(in Ray r, float maxDist, out HitInfo hit) {
     HitInfo currHit;
 
     if(intersectPrimitive(r, p, currHit)) {
-      didIntersect = true;
-      
       if(currHit.t < hit.t) {
+        didIntersect = true;
         hit = currHit;
       }
     }
@@ -243,8 +242,6 @@ bool intersect(in Ray r, float maxDist, out HitInfo hit) {
   hit.material = materials[hit.matId];
   return didIntersect;
 }
-
-
 
 // =============================================================================
 // Illumination
@@ -258,12 +255,11 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, uint ra
   vec3 specularColor = material.specularColor;
   vec3 diffuseColor = material.diffuseColor * (vec3(1) - specularColor);
 
-  int lightCnt = lights.length();
-  for (int i = 0; i < lightCnt; ++i) {
+  for (int i = 0; i < lightCount; ++i) {
     SphereLight l = lights[i];
 
     vec3 V = -inDir;
-    vec3 L = l.center - pos + directionUniformSphere(random) * l.radius;
+    vec3 L = l.center + directionUniformSphere(random) * l.radius - pos;
     float lightDis = length(L);
     L /= lightDis;
     
@@ -275,7 +271,7 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, uint ra
       continue;
 
     // diffuse
-    color += max(0.0, dot(L, N)) * l.color* diffuseColor;
+    color += max(0.0, dot(L, N)) * l.color.rgb * diffuseColor;
 
     // specular
     color += shadingGGX(N, V, L, material.roughness, specularColor);
@@ -288,67 +284,32 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, uint ra
 // tracing
 vec3 trace(Ray r, inout uint random) {
   HitInfo intr;
-  int bounces = 3;
-
-  vec3 pos = r.pos;
-  vec3 dir = r.dir;
-  vec3 weight = vec3(1);
+  int bounces = uMaxBounces;
   
-  if (!intersect(r, MAX_DISTANCE, intr))
-      return vec3(0);
+  vec3 color = vec3(0);
+  vec3 weight = vec3(1);
 
   for (int b = 0; b < bounces; ++b) {
-    r.pos = pos;
-    r.dir = dir;
-    
-    // step 2: russian roulette
-    float rhoS = dot(vec3(1,1,1), intr.material.specularColor);
-    float rhoD = dot(vec3(1,1,1), intr.material.diffuseColor);
-    float rhoR = intr.material.refractiveness;
-
-    // REFLECT glossy
-    if (uniformFloat(0, 1, random) <= rhoS)
-    {
-      dir = reflect(dir, intr.norm);
-      pos = intr.pos;
-      weight *= 1; // specular
-    }
-    // REFLECT diffuse
-    else if (uniformFloat(0, 1, random) <= rhoD)
-    {
-      dir = directionCosTheta(intr.norm, random);
-      pos = intr.pos;
-      weight *= 1; //dot(dir, intr.norm); // cos theta vs p(w), f vs. rho, pi in p(w) and f
-    }
-    // REFRACT
-    else if (uniformFloat(0, 1, random) <= rhoR)
-    {
-      float inside = sign(dot(dir, intr.norm)); // 1 for inside, -1 for outside
-      dir = refract(dir, -inside * intr.norm, inside < 0 ? 1 / intr.material.eta : intr.material.eta);
-      pos = intr.pos;
-      weight *= 1; // refractive
-    }
-    // EMIT
-    else
-    {
-      vec3 color = directIllumination(intr.pos, dir, intr.norm, intr.material, random);
-      weight *= color / (1 - rhoS) / (1 - rhoD) / (1 - rhoR);
-    }
-    
     // step 1: intersect with scene
-    if (!intersect(r, MAX_DISTANCE, intr))
-      break; // TODO: cubemap
-  }
+    if (!intersect(r, MAX_DISTANCE, intr)) {
+      break;
+    }
+    
+    color += intr.material.emissiveColor * weight;
+    weight *= intr.material.diffuseColor;
+    color += directIllumination(intr.pos, r.dir, intr.norm, intr.material, random) * weight;
 
-  // last bounce
-  vec3 color = directIllumination(intr.pos, dir, intr.norm, intr.material, random);
-  return weight * color;
+    r.dir = directionCosTheta(intr.norm, random);
+    r.pos = intr.pos;
+  }
+  
+  return color;
 }
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main() {
   ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
-  uint random = wang_hash(wang_hash( uint(3000*totalTime) + storePos.x * 7) + storePos.y * 15001);
+  uint random = wang_hash(wang_hash(uint(totalTime * 1003 + storePos.x * 7)) + uint(totalTime * 5000 + storePos.y * 15001));
 
   ivec2 imgSize = imageSize(backBuffer);
   
@@ -359,11 +320,12 @@ void main() {
   Payload pl;
   pl.col = vec4(0, 0, 0, 1);
   
-  for(int i = 0; i < 2; i++) {
+  for(int i = 0; i < 3; i++) {
     pl.col.rgb += trace(r, random);
   }
   
-  pl.col.rgb *= 1.0/2;
+  pl.col.rgb *= 1.0/3;
+  pl.col.rgb = igamma(pl.col.rgb);
   
   imageStore(backBuffer, storePos, pl.col);
  }

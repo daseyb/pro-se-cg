@@ -2,6 +2,7 @@
 
 #include "PrimitiveCommon.glsl"
 
+uniform int materialId;
 uniform int currentPrimitiveCount;
 uniform int writeOffset;
 uniform mat4 model2World;
@@ -43,12 +44,12 @@ void main() {
     currVert.v = 0;
     currVert.norm = normalize( (model2WorldInvTransp * vec4(normals[index].xyz, 0)).xyz );
     verts[i] = currVert;
-    
   }
   
   result.a = verts[0];
   result.b = verts[1];
   result.c = verts[2];
+  result.matId = materialId;
 
   primitives[writeOffset + primIdx] = result;
  }

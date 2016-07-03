@@ -24,7 +24,7 @@ using namespace glow;
 
 struct LightData {
   glm::vec4 color;
-  bool castShadow;
+  float size;
   glm::vec3 dir;
   LightType type;
 
@@ -53,6 +53,7 @@ private:
       ScreenSpaceSize::HALF, ScreenSpaceSize::FULL, ScreenSpaceSize::FULL};
 
   const size_t MAX_PRIMITIVE_COUNT = 32768;
+  const size_t MAX_LIGHT_COUNT = 256;
 
   SettingsSystem *m_settings;
   EventSystem *m_events;
@@ -90,6 +91,8 @@ private:
 
   SharedShaderStorageBuffer m_camDataBuffer;
   SharedShaderStorageBuffer m_primitiveBuffer;
+  SharedShaderStorageBuffer m_lightDataBuffer;
+  SharedShaderStorageBuffer m_materialDataBuffer;
 
   uint64_t m_frameIndex = 0;
 
@@ -159,16 +162,11 @@ public:
 
   inline size_t getNumPasses() { return m_passes.size(); }
 
-  inline void submit(DrawCall drawCall, RenderQueue queue,
-                     uint32_t passIndex = 0) {
+  inline void submit(DrawCall drawCall, uint32_t passIndex = 0) {
     if (passIndex >= m_passes.size())
       return;
 
-    if (queue == RenderQueue::OPAQUE) {
-      m_passes[passIndex].submittedDrawCallsOpaque.push(drawCall);
-    } else if (queue == RenderQueue::TRANSPARENT) {
-      m_passes[passIndex].submittedDrawCallsTransparent.push(drawCall);
-    }
+    m_passes[passIndex].submittedDrawCallsOpaque.push(drawCall);
   }
 
   inline void submit(LightData light, uint32_t passIndex = 0) {

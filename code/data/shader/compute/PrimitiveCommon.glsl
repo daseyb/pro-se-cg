@@ -9,8 +9,9 @@ struct Primitive {
 	Vertex a;
   Vertex b;
   Vertex c;
+  uint matId;
+  vec3 pad_;
 };
-
 
 struct Ray {
   vec3 pos;
@@ -19,9 +20,10 @@ struct Ray {
 
 struct Material {
   vec3 diffuseColor;
-  vec3 specularColor;
   float roughness;
+  vec3 emissiveColor;
   float refractiveness;
+  vec3 specularColor;
   float eta;
 };
 
@@ -36,9 +38,8 @@ struct HitInfo {
 struct SphereLight {
   vec3 center;
   float radius;
-  vec3 color;
+  vec4 color;
 };
-
 
 bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
     const float INFINITY = 1e10;
@@ -89,7 +90,7 @@ bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
     hit.norm = tri.a.norm * (1.0 - s - t) + tri.b.norm * s + tri.c.norm * t;
     hit.pos = ray.pos + r * ray.dir;
     hit.t = r;
-    hit.matId = 0;
+    hit.matId = tri.matId;
     
     return true;
 }

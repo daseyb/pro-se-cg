@@ -20,6 +20,8 @@
 #include <engine/core/SimulateEvent.hpp>
 #include <engine/audio/MidiNoteEvent.hpp>
 
+#include <engine/graphics/Light.hpp>
+
 #include <glow-extras/assimp/Importer.hh>
 #include <glow/objects/VertexArray.hh>
 
@@ -79,7 +81,7 @@ int main(int argc, char *argv[]) {
   Entity camera = sceneGraph.create();
   auto camTransform = camera.assign<Transform>();
   camera.assign<Camera>(75.0f, 0.01f, 100.0f);
-  camTransform->position = glm::vec3(0, 0, 30);
+  camTransform->position = glm::vec3(0, 0, 10);
   renderer.addRenderPass(camera, "Main"_sh);
 
   auto &importer = glow::assimp::Importer();
@@ -94,16 +96,42 @@ int main(int argc, char *argv[]) {
       importer.load("data/geometry/CornellBox-Original.obj")};
   Geometry icosphereGeom = {importer.load("data/geometry/icosphere.obj")};
 
-  Material sphereMat = {
-      {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f, 0.0f}, RenderQueue::OPAQUE};
+  Material whiteMat = {
+      {0.8f, 0.8f, 0.8f}, 0.0f, {0.0f, 0.0f, 0.0f}, 0.0f, { 0.0f, 0.0f, 0.0f }, 0.0 };
   Entity teapotCenter = sceneGraph.create();
   auto boxTrans = teapotCenter.assign<Transform>();
-  teapotCenter.assign<Drawable>(testSceneGeom, sphereMat);
+  teapotCenter.assign<Drawable>(testSceneGeom, whiteMat);
 
+  Material emissiveMat = {
+      { 1.0f, 1.0f, 1.0f }, 0.0f,{ 5.0f, 1.0f, 1.0f }, 0.0f,{ 0.0f, 0.0f, 0.0f }, 0.0 };
   Entity icosphereSide = sceneGraph.create();
   auto teapotSideTransform = icosphereSide.assign<Transform>();
   teapotSideTransform->position = {-10, 0, 0};
-  icosphereSide.assign<Drawable>(icosphereGeom, sphereMat);
+  icosphereSide.assign<Drawable>(icosphereGeom, emissiveMat);
+
+  Entity icosphere2 = sceneGraph.create();
+  auto icosphere2Transform = icosphere2.assign<Transform>();
+  icosphere2Transform->position = { -11, 22, 0 };
+  icosphere2.assign<Drawable>(icosphereGeom, emissiveMat);
+
+  /*Entity icosphereLight = sceneGraph.create();
+  auto icoSphereLightTransform = icosphereLight.assign<Transform>();
+  icoSphereLightTransform->position = glm::vec3(0, 3, 0);
+  icoSphereLightTransform->parent = teapotSideTransform;
+  icosphereLight.assign<Light>(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.1);*/
+
+
+  Entity light01 = sceneGraph.create();
+  light01.assign<Transform>()->position = glm::vec3(-11, 7, 8);
+  light01.assign<Light>(glm::vec4(0.2f, 1.0f, 0.6f, 1.0f), 0.8);
+
+  Entity light02 = sceneGraph.create();
+  light02.assign<Transform>()->position = glm::vec3(-11, 7, 1);
+  light02.assign<Light>(glm::vec4(1.0, 0.8, 0.6, 1.0f), 0.8);
+
+  Entity light03 = sceneGraph.create();
+  light03.assign<Transform>()->position = glm::vec3(-11, 20, 8);
+  light03.assign<Light>(glm::vec4(0.6, 0.7, 1.0, 1.0f), 0.2);
 
   bool keyState[SDL_NUM_SCANCODES] = {};
 
@@ -194,8 +222,6 @@ int main(int argc, char *argv[]) {
     if (boxScale > 1.0f) {
         boxScale -= (boxScale - 1.0f) * e.dt * 10.0f;
     }
-
-    
 
     teapotSideTransform->position =
         glm::vec3(sinf(e.totalTime), 0.0f, cosf(e.totalTime)) * 5.0f;
