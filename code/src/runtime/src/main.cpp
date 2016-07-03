@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
   Geometry icosphereGeom = {importer.load("data/geometry/icosphere.obj")};
 
   Material whiteMat = {
-      {0.8f, 0.8f, 0.8f}, 0.0f, {0.0f, 0.0f, 0.0f}, 0.0f, { 0.0f, 0.0f, 0.0f }, 0.0 };
+      {0.8f, 0.8f, 0.8f}, 1.0f, {0.0f, 0.0f, 0.0f}, 0.0f, { 0.0f, 0.0f, 0.0f }, 0.0 };
   Entity teapotCenter = sceneGraph.create();
   auto boxTrans = teapotCenter.assign<Transform>();
   teapotCenter.assign<Drawable>(testSceneGeom, whiteMat);
@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
   light02.assign<Light>(glm::vec4(1.0, 0.8, 0.6, 1.0f), 0.8);
 
   Entity light03 = sceneGraph.create();
-  light03.assign<Transform>()->position = glm::vec3(-11, 20, 8);
+  light03.assign<Transform>()->position = glm::vec3(-11, 22, 8);
   light03.assign<Light>(glm::vec4(0.6, 0.7, 1.0, 1.0f), 0.2);
 
   bool keyState[SDL_NUM_SCANCODES] = {};

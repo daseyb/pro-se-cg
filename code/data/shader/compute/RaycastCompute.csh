@@ -18,7 +18,7 @@ uniform int lightCount;
 uniform float totalTime;
 uniform uint uSeed;
 
-const int uMaxBounces = 3;
+const int uMaxBounces = 2;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 
@@ -267,8 +267,9 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, uint ra
     r.pos = pos;
     r.dir = L;
 
-    if (intersect(r, lightDis, intr))
+    if (intersect(r, lightDis, intr)) {
       continue;
+    }
 
     // diffuse
     color += max(0.0, dot(L, N)) * l.color.rgb * diffuseColor;
@@ -320,11 +321,11 @@ void main() {
   Payload pl;
   pl.col = vec4(0, 0, 0, 1);
   
-  for(int i = 0; i < 3; i++) {
+  for(int i = 0; i < 1; i++) {
     pl.col.rgb += trace(r, random);
   }
   
-  pl.col.rgb *= 1.0/3;
+  pl.col.rgb *= 1.0/1;
   pl.col.rgb = igamma(pl.col.rgb);
   
   imageStore(backBuffer, storePos, pl.col);
