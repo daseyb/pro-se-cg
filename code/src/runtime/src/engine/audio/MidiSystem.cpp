@@ -118,7 +118,8 @@ bool MidiSystem::startup() {
     }
   }
 
-  error = Pm_OpenInput(&m_inputStream, deviceID, NULL, 32, NULL, NULL);
+  glow::debug() << "Opening Device: " << Pm_GetDeviceInfo(deviceID)->name << "\n";
+  error = Pm_OpenInput(&m_inputStream, deviceID, NULL, 512, NULL, NULL);
 
   if (error) {
     glow::error() << Pm_GetErrorText(error) << "\n";
@@ -135,9 +136,9 @@ void MidiSystem::update() {
     return;
   }
 
-  PmEvent inBuffer[32];
+  PmEvent inBuffer[512];
 
-  int eventCount = Pm_Read(m_inputStream, inBuffer, 32);
+  int eventCount = Pm_Read(m_inputStream, inBuffer, 512);
 
   for (int i = 0; i < eventCount; i++) {
     PmEvent e = inBuffer[i];

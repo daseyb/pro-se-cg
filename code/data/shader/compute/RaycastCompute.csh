@@ -19,6 +19,7 @@ uniform float totalTime;
 uniform uint uSeed;
 
 const int uMaxBounces = 2;
+const int uSampleCount = 1;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 
@@ -31,6 +32,9 @@ layout(std140, binding = 2) buffer CameraBuffer {
    float fov;
    mat4 invProj;
    mat4 invView;
+   mat4 view;
+   float lensRadius;
+   float focalDistance;
 } cam;
 
 layout(std140, binding = 3) buffer LightBuffer {
@@ -51,8 +55,7 @@ vec3 igamma(float r, float g, float b) {
   return igamma(vec3(r, g, b));
 }
 
-uint wang_hash(uint seed)
-{
+uint wang_hash(uint seed) {
   seed = (seed ^ 61) ^ (seed >> 16);
   seed *= 9;
   seed = seed ^ (seed >> 4);
@@ -61,8 +64,7 @@ uint wang_hash(uint seed)
   return seed;
 }
 
-float wang_float(uint hash)
-{
+float wang_float(uint hash) {
   return hash / float(0x7FFFFFFF) / 2.0;
 }
 
@@ -149,6 +151,40 @@ vec3 sampleSphereSolidAngle(vec3 x, vec3 sPos, float sRad, out float p, inout ui
       return l;
 }
 
+vec2 concentricSampleDisk(inout uint random) {
+  float r, theta;
+  float sx = uniformFloat(-1, 1, random);
+  float sy = uniformFloat(-1, 1, random);
+
+  if (sx == 0.0 && sy == 0.0) {
+    return vec2(0);
+  }
+
+  if (sx >= -sy) {
+    if (sx > sy) {
+      r = sx;
+      if (sy > 0.0f)
+        theta = sy / r;
+      else
+        theta = 8.0 + sy / r;
+    } else {
+      r = sy;
+      theta = 2.0 - sx / r;
+    }
+  } else {
+    if (sx <= sy) {
+      r = -sx;
+      theta = 4.0 - sy / r;
+    } else {
+      r = -sy;
+      theta = 6.0 + sx / r;
+    }
+  }
+
+  theta *= PI / 4.0;
+  return vec2(cos(theta), sin(theta)) * r;
+}
+
 Ray generateRay(vec2 screenPos, vec2 screenSize, inout uint random) {
   vec2 subpixel = uniformVec2(vec2(-1), vec2(1), random) / screenSize;
 
@@ -158,14 +194,23 @@ Ray generateRay(vec2 screenPos, vec2 screenSize, inout uint random) {
   near /= near.w;
   far  /= far.w;
 
-  near = cam.invView * near;
-  far  = cam.invView * far;
-
   vec3 dir = normalize((far - near).xyz);
   
   Ray result;
-  result.pos = cam.pos;
+  result.pos = vec3(0);
   result.dir = dir;
+  
+  if (cam.focalDistance > 0 && cam.lensRadius > 0) {
+    vec2 lensPos = concentricSampleDisk(random) * cam.lensRadius;
+
+    vec3 pFocus = dir * cam.focalDistance / -dir.z;
+
+    result.pos = vec3(lensPos, 0);
+    result.dir = normalize(pFocus - result.pos);
+  }
+  
+  result.pos = (cam.view * vec4(0,0,0, 1)).xyz;
+  result.dir = normalize( (transpose(cam.invView) * vec4(result.dir, 0)).xyz);
   return result;
 }
 
@@ -338,11 +383,11 @@ void main() {
   Payload pl;
   pl.col = vec4(0, 0, 0, 1);
   
-  for(int i = 0; i < 1; i++) {
+  for(int i = 0; i < uSampleCount; i++) {
     pl.col.rgb += trace(r, random);
   }
   
-  pl.col.rgb *= 1.0/1;
+  pl.col.rgb *= 1.0/uSampleCount;
   pl.col.rgb = pl.col.rgb;
   
   imageStore(backBuffer, storePos, pl.col);

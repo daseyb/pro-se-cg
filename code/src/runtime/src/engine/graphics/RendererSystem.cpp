@@ -57,6 +57,9 @@ struct CameraData {
     float fov;
     glm::mat4 invProj;
     glm::mat4 invView;
+    glm::mat4 view;
+    float lensRadius;
+    float focalDistance;
 };
 
 struct GPULight {
@@ -205,7 +208,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
   auto camPos = glm::vec3(camTransform * glm::vec4{ 0, 0, 0, 1 });
 
-  CameraData camData { camPos, glm::radians(cam->fov), glm::inverse(aaProj), viewMatrixInverse };
+  CameraData camData { camPos, glm::radians(cam->fov), glm::inverse(aaProj), viewMatrix, viewMatrixInverse, cam->lensRadius, cam->focalDistance };
   auto camDataBinding = m_camDataBuffer->bind();
   camDataBinding.setData(camData, GL_DYNAMIC_DRAW);
 

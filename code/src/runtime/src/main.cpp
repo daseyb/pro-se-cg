@@ -76,11 +76,13 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
+  renderer.addEffect<BloomPostFX>();
+
   window.setWindowTitle("Orion");
 
   Entity camera = sceneGraph.create();
   auto camTransform = camera.assign<Transform>();
-  camera.assign<Camera>(75.0f, 0.01f, 100.0f);
+  auto cam = camera.assign<Camera>(75.0f, 0, 0, 0.01f, 100.0f);
   camTransform->position = glm::vec3(0, 0, 10);
   renderer.addRenderPass(camera, "Main"_sh);
 
@@ -194,6 +196,7 @@ int main(int argc, char *argv[]) {
 
   float teapotScale = 1.0f;
   float boxScale = 1.0f;
+  float teapotPos = 0.0f;
 
   events.subscribe<SimulateEvent>([&](const SimulateEvent &e) {
     glm::vec3 moveDir{0, 0, 0};
@@ -223,8 +226,9 @@ int main(int argc, char *argv[]) {
         boxScale -= (boxScale - 1.0f) * e.dt * 10.0f;
     }
 
+    teapotPos += e.dt * midi.controlValue(2);
     teapotSideTransform->position =
-        glm::vec3(sinf(e.totalTime), 0.0f, cosf(e.totalTime)) * 5.0f;
+        glm::vec3(sinf(teapotPos), 0.0f, cosf(teapotPos)) * 5.0f;
     teapotSideTransform->scale = glm::vec3(teapotScale + sinf(e.totalTime*10.0f)*midi.controlValue(0)*0.5f);
 
     boxTrans->scale = glm::vec3(boxScale + midi.controlValue(1)*2.5f);
@@ -232,6 +236,9 @@ int main(int argc, char *argv[]) {
     light01->color.a = midi.controlValue(4) * 150;
     light02->color.a = midi.controlValue(5) * 150;
     light03->color.a = midi.controlValue(6) * 150;
+
+    cam->focalDistance = midi.controlValue(2) * 100;
+    cam->lensRadius = midi.controlValue(3) * 1;
 
   }); 
 

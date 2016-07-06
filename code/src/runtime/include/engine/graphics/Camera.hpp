@@ -11,11 +11,13 @@ enum class ProjectionMode {
 };
 
 struct Camera : Component<Camera> {
-  explicit Camera() : fov(75), near(0.1f), far(100), worldUp(glm::dvec3(0, 1, 0)), isMain(false), renderPassIndex(std::numeric_limits<uint32_t>::max()) {}
-  explicit Camera(float fov, float near, float far, glm::dvec3 up = glm::dvec3(0, 1, 0), bool isMain = false, uint32_t passIndex = std::numeric_limits<uint32_t>::max())
-    : fov(fov), near(near), far(far), worldUp(up), isMain(isMain), renderPassIndex(passIndex) { }
+  explicit Camera() : fov(75), lensRadius(0), focalDistance(0), near(0.1f), far(100), worldUp(glm::dvec3(0, 1, 0)), isMain(false), renderPassIndex(std::numeric_limits<uint32_t>::max()) {}
+  explicit Camera(float fov, float lensRadius, float focalDistance, float near, float far, glm::dvec3 up = glm::dvec3(0, 1, 0), bool isMain = false, uint32_t passIndex = std::numeric_limits<uint32_t>::max())
+    : fov(fov), lensRadius(lensRadius), focalDistance(focalDistance), near(near), far(far), worldUp(up), isMain(isMain), renderPassIndex(passIndex) { }
 
   float fov;
+  float lensRadius;
+  float focalDistance;
   float near;
   float far;
   glm::dvec3 worldUp;

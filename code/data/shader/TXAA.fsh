@@ -30,7 +30,7 @@ void main()
   vec2 motion =  texture(uSamplerNormalMotion, vTexCoord).zw;
   vec2 prevMotion = texture(uSamplerNormalMotion, vTexCoord - motion).zw;
   
-  float factor = 0.9;
+  float factor = 0.8;
   
   vec4 current = texture(uSamplerColor, vTexCoord);
     
