@@ -1,10 +1,10 @@
 {
-  "resolution": [1280, 720],
+  "resolution": [320, 240],
   "target_fps": 60,
   "vsync": true,
   "fullscreen": false,
   "quality": "high",
   "ssao": false,
   "scene": "AtmosphereTest",
-  "midiInputDevice": "MPKmini2",
+  "midiInputDevice": "loopMIDI Port"
 }

@@ -24,6 +24,9 @@ void SoundSource::play(int loops) {
   } else if(!m_channel) {
     m_channel = m_sound->play();
   }
+  FMOD_MODE channelMode;
+  m_channel->getMode(&channelMode);
+  m_channel->setMode(channelMode | FMOD_LOOP_NORMAL);
   m_channel->setVolume(m_volume);
   m_channel->setLoopCount(loops);
   m_state = PlaybackState::PLAYING;

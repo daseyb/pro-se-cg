@@ -34,6 +34,18 @@ private:
 
   Entity m_listener;
 
+  Entity m_recordSoundEntity;
+
+  FMOD::Channel* m_recordingChannel;
+  unsigned int m_recordingSoundLength = 0;
+  unsigned int m_recordingSamplesPlayed = 0;
+  unsigned int m_recordingSamplesRecorded = 0;
+  int m_recordingActualLatency = 0;
+  unsigned int m_recordingNativeRate = 0;
+  unsigned int m_recordingDriftThreshold = 0;
+  unsigned int m_recordingAdjustedLatency = 0;
+  unsigned int m_recordingDesiredLatency = 0;
+
   FMOD::Channel* playSound(Sound* sound);
   void release(FMOD::Sound* sound);
   void setListenerProperties();
@@ -45,6 +57,7 @@ public:
 
   void setListener(Entity listener) { m_listener = listener; setListenerProperties(); }
   std::shared_ptr<Sound> createSound(std::string filename, SoundMode mode);
+  std::shared_ptr<Sound> createSound(FMOD::Sound* sound);
 
   void getSpectrum(float** data, unsigned int* length) {
     

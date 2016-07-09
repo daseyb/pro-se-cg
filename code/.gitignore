@@ -35,3 +35,4 @@
 /imgui.ini
 *.trace
 transmittance.png
+.vscode/

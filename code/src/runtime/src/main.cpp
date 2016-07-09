@@ -135,6 +135,22 @@ int main(int argc, char *argv[]) {
   light03Ent.assign<Transform>()->position = glm::vec3(-11, 22, 8);
   auto light03 = light03Ent.assign<Light>(glm::vec4(0.6, 0.7, 1.0, 40), 0.2);
 
+  std::vector<Transform::Handle> barTransforms;
+  std::vector<Entity> barEntities;
+
+  Geometry cubeGeom = { importer.load("data/geometry/cube.obj") };
+
+  for (int i = 0; i < 10; i++) {
+      auto barEntity = sceneGraph.create();
+      auto barTransform = barEntity.assign<Transform>();
+      barTransform->position = glm::vec3( 10 - i * 2, 5, 9);
+      
+      barEntities.push_back(barEntity);
+      barTransforms.push_back(barTransform);
+
+      barEntity.assign<Drawable>(cubeGeom, emissiveMat);
+  }
+
   bool keyState[SDL_NUM_SCANCODES] = {};
 
   events.subscribe<MouseEvent>([&](const MouseEvent &e) {
@@ -239,6 +255,28 @@ int main(int argc, char *argv[]) {
 
     cam->focalDistance = midi.controlValue(2) * 100;
     cam->lensRadius = midi.controlValue(3) * 1;
+
+    float* spectrumData;
+    unsigned int length;
+
+    audio.getSpectrum(&spectrumData, &length);
+
+    float bucketsPerCube = float(length) / barTransforms.size();
+
+    int currDataPos = 0;
+    for (int i = 0; i < barTransforms.size(); i++) {
+        float percentage = sqrt(1.0f- float(i+1) / (barTransforms.size()+1));
+        int bucketCount = (int)(-log(percentage) * bucketsPerCube);
+        float subSum = 0;
+        for (int j = currDataPos; j < currDataPos + bucketCount; j++) {
+            assert(j < length);
+            subSum += spectrumData[j];
+        }
+        subSum /= bucketCount;
+        currDataPos += bucketCount;
+
+        barTransforms[i]->scale.y = subSum * 1000 * 1.0f/log(1.0f - percentage) + 0.1f;
+    }
 
   }); 
 
