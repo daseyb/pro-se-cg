@@ -134,21 +134,6 @@ bool RendererSystem::startup() {
     }
   });
 
-  m_events->subscribe<"DrawUI"_sh>([this]() {
-    ImGui::Begin("GBuffer", 0, ImGuiWindowFlags_AlwaysAutoResize);
-    ImGui::Image((void*)m_normalMotionBuffer->getObjectName(), glm::vec2{ 1280, 720 } *0.2f, { 0, 1 }, { 1, 0 });
-    ImGui::End();
-    
-    ImGui::Begin("Render Passes", 0, ImGuiWindowFlags_AlwaysAutoResize);
-    for (size_t i = 0; i < m_passes.size(); i++) {
-      auto& pass = m_passes[i];
-      if (ImGui::Button(("Pass_" + std::to_string(i)).c_str())) {
-        pass.active = !pass.active;
-      }
-    }
-    ImGui::End();
-  }, 1);
-
   return true;
 }
 

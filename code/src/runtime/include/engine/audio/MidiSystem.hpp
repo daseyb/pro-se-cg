@@ -30,6 +30,7 @@ private:
     SettingsSystem* m_settings;
 
     PortMidiStream* m_inputStream;
+    PmDeviceID m_connectedDeviceID;
 
     float m_controlValues[CHANNEL_COUNT][VALUE_COUNT];
     float m_pitchBendValues[CHANNEL_COUNT];

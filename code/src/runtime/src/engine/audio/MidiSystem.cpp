@@ -50,16 +50,24 @@ bool MidiSystem::startup() {
           return;
         }
 
-        static int currentChannel = 1;
+        ImGui::PushItemWidth(140);
 
-        ImGui::DragInt("Channel", &currentChannel, 1.0f, 0, CHANNEL_COUNT - 1);
-        float controlValues[VALUE_COUNT];
-
-        for (int i = 0; i < VALUE_COUNT; i++) {
-          controlValues[i] = controlValue(i, currentChannel);
+        if(m_connectedDeviceID == -1) {
+            ImGui::LabelText("Not connected!", "Status");
+        } else {
+            ImGui::LabelText("Connected!", "Status");
+            ImGui::SameLine();
+            ImGui::LabelText("", "%s", Pm_GetDeviceInfo(m_connectedDeviceID)->name);
         }
 
-        ImGui::PlotHistogram("Values", controlValues, VALUE_COUNT, 0, NULL, 0,
+        ImGui::Separator();
+
+        ImGui::PopItemWidth();
+        static int currentChannel = 0;
+
+        ImGui::DragInt("Channel", &currentChannel, 1.0f, 0, CHANNEL_COUNT - 1);
+
+        ImGui::PlotHistogram("Values", m_controlValues[currentChannel], VALUE_COUNT, 0, NULL, 0,
                              1.0f, glm::vec2(450, 100));
 
         ImGui::Separator();
@@ -73,8 +81,9 @@ bool MidiSystem::startup() {
                              glm::vec2(450, 100));
         ImGui::Separator();
 
-        float val = pitchBend(currentChannel);
-        ImGui::DragFloat("Pitch Bend", &val, 1.0f, -1.0f, 1.0f);
+        float pitchBendVal = pitchBend(currentChannel);
+        ImGui::DragFloat("Pitch Bend", &pitchBendVal, 1.0f, -1.0f, 1.0f);
+
 
         ImGui::End();
       },
@@ -103,7 +112,7 @@ bool MidiSystem::startup() {
       << "\n";
 
   auto defaultMidiSystemName = m_settings->getDefaultMidiInputDevice();
-
+  m_connectedDeviceID = -1;
   PmDeviceID deviceID = defaultDeviceId;
 
   for (PmDeviceID i = 0; i < deviceCount; i++) {
@@ -125,6 +134,8 @@ bool MidiSystem::startup() {
     glow::error() << Pm_GetErrorText(error) << "\n";
     return true;
   }
+
+  m_connectedDeviceID = deviceID;
 
   m_events->subscribe<SimulateEvent>([&](const SimulateEvent &e) { update(); });
 
