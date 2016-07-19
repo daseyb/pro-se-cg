@@ -41,10 +41,11 @@
 #  pragma comment(lib, "ws2_32.lib")
 # endif
 #else
-# include <sys/socket.h>
-# include <netinet/in.h>
-# include <netdb.h>
-# include <sys/time.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <sys/time.h>
+#include <unistd.h>
 #endif
 #include <cstring>
 #include <cstdio>

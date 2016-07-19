@@ -52,6 +52,14 @@ public:
         return m_keyStates[channel][index];
     }
 
+    void setDefaultControlValues(float val) {
+        for(int c = 0; c < CHANNEL_COUNT; c++) {
+            for(int i = 0; i< VALUE_COUNT; i++) {
+                m_controlValues[c][i] = val;
+            }
+        }
+    }
+
     bool startup() override;
     void shutdown() override;
 };

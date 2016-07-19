@@ -2,6 +2,7 @@
 #include <engine/memory/GlobalStackAllocator.hpp>
 #include <assert.h>
 #include <memory>
+#include <cstring>
 
 template <class T> class Stack {
 private:
@@ -47,7 +48,7 @@ public:
 
   void push(T el) {
     assert(m_currentSize < m_maxSize);
-    memcpy((T*)m_mem.ptr + m_currentSize, &el, sizeof(T));
+    std::memcpy((T*)m_mem.ptr + m_currentSize, &el, sizeof(T));
     m_currentSize++;
   }
 

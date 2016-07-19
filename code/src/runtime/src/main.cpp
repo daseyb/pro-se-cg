@@ -36,12 +36,12 @@ glm::vec3 rotate(glm::vec3 vec, glm::mat4 mat) {
 }
 
 int main(int argc, char *argv[]) {
-#if _DEBUG
+
   if (argc != 2) {
     std::cout << "Usage: <config file>" << std::endl;
     return -1;
   }
-#endif
+
   std::string configFile = argv[1];
 
   // Set up the systems we want to use.
@@ -80,23 +80,24 @@ int main(int argc, char *argv[]) {
 
   window.setWindowTitle("Orion");
 
+  midi.setDefaultControlValues(0.5f);
+
   Entity camera = sceneGraph.create();
   auto camTransform = camera.assign<Transform>();
   auto cam = camera.assign<Camera>(75.0f, 0, 0, 0.01f, 100.0f);
   camTransform->position = glm::vec3(0, 0, 10);
   renderer.addRenderPass(camera, "Main"_sh);
 
-  auto &importer = glow::assimp::Importer();
-  importer.setCalculateTangents(false);
-  importer.setGenerateSmoothNormal(false);
-  importer.setGenerateUVCoords(false);
+  glow::assimp::Importer().setCalculateTangents(false);
+  glow::assimp::Importer().setGenerateSmoothNormal(false);
+  glow::assimp::Importer().setGenerateUVCoords(false);
 
-  Geometry teapotGeom = {importer.load("data/geometry/teapot.obj")};
-  Geometry testSceneGeom = {importer.load("data/geometry/test_scene.obj")};
-  Geometry teddyGeom = {importer.load("data/geometry/teddy.obj")};
+  Geometry teapotGeom = {glow::assimp::Importer().load("data/geometry/teapot.obj")};
+  Geometry testSceneGeom = {glow::assimp::Importer().load("data/geometry/test_scene.obj")};
+  Geometry teddyGeom = {glow::assimp::Importer().load("data/geometry/teddy.obj")};
   Geometry coornellBoxGeom = {
-      importer.load("data/geometry/CornellBox-Original.obj")};
-  Geometry icosphereGeom = {importer.load("data/geometry/icosphere.obj")};
+      glow::assimp::Importer().load("data/geometry/CornellBox-Original.obj")};
+  Geometry icosphereGeom = {glow::assimp::Importer().load("data/geometry/icosphere.obj")};
 
   Material whiteMat = {
       {0.8f, 0.8f, 0.8f}, 1.0f, {0.0f, 0.0f, 0.0f}, 0.0f, { 0.0f, 0.0f, 0.0f }, 0.0 };
@@ -116,13 +117,6 @@ int main(int argc, char *argv[]) {
   icosphere2Transform->position = { -11, 22, 0 };
   icosphere2.assign<Drawable>(icosphereGeom, emissiveMat);
 
-  /*Entity icosphereLight = sceneGraph.create();
-  auto icoSphereLightTransform = icosphereLight.assign<Transform>();
-  icoSphereLightTransform->position = glm::vec3(0, 3, 0);
-  icoSphereLightTransform->parent = teapotSideTransform;
-  icosphereLight.assign<Light>(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.1);*/
-
-
   Entity light01Ent = sceneGraph.create();
   light01Ent.assign<Transform>()->position = glm::vec3(-11, 7, 8);
   auto light01 = light01Ent.assign<Light>(glm::vec4(0.2f, 1.0f, 0.6f, 40), 0.8);
@@ -138,7 +132,7 @@ int main(int argc, char *argv[]) {
   std::vector<Transform::Handle> barTransforms;
   std::vector<Entity> barEntities;
 
-  Geometry cubeGeom = { importer.load("data/geometry/cube.obj") };
+  Geometry cubeGeom = { glow::assimp::Importer().load("data/geometry/cube.obj") };
 
   for (int i = 0; i < 10; i++) {
       auto barEntity = sceneGraph.create();
@@ -246,8 +240,6 @@ int main(int argc, char *argv[]) {
     teapotSideTransform->position =
         glm::vec3(sinf(teapotPos), 0.0f, cosf(teapotPos)) * 5.0f;
     teapotSideTransform->scale = glm::vec3(teapotScale + sinf(e.totalTime*10.0f)*midi.controlValue(0)*0.5f);
-
-    boxTrans->scale = glm::vec3(boxScale + midi.controlValue(1)*2.5f);
 
     light01->color.a = midi.controlValue(4) * 150;
     light02->color.a = midi.controlValue(5) * 150;
