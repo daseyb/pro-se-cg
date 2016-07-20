@@ -19,6 +19,7 @@
 #include <engine/events/KeyboardEvent.hpp>
 #include <engine/core/SimulateEvent.hpp>
 #include <engine/audio/MidiNoteEvent.hpp>
+#include <engine/audio/MidiControlEvent.hpp>
 
 #include <engine/graphics/Light.hpp>
 
@@ -76,7 +77,7 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  renderer.addEffect<BloomPostFX>();
+  //renderer.addEffect<BloomPostFX>();
 
   window.setWindowTitle("Orion");
 
@@ -260,11 +261,11 @@ int main(int argc, char *argv[]) {
     }
 
     int currDataPos = 0;
-    for (int i = 0; i < barTransforms.size(); i++) {
+    for (size_t i = 0; i < barTransforms.size(); i++) {
         float percentage = sqrt(1.0f- float(i+1) / (barTransforms.size()+1));
         int bucketCount = (int)(-log(percentage) * bucketsPerCube);
         float subSum = 0; 
-        for (int j = currDataPos; j < currDataPos + bucketCount; j++) {
+        for (size_t j = currDataPos; j < currDataPos + bucketCount; j++) {
             assert(j < length);
             subSum += spectrumData[j];
         }
@@ -275,6 +276,17 @@ int main(int argc, char *argv[]) {
     }
 
   }); 
+
+  events.subscribe<"DrawUI"_sh>([&]() {
+    ImGui::Begin("Scene Controls");
+    midi.uiFader("Light 01 Color", 4, 0);
+    midi.uiFader("Light 02 Color", 5, 0);
+    midi.uiFader("Light 03 Color", 6, 0);
+    ImGui::Separator();
+    midi.uiFader("Camera Focal Distance", 2, 0);
+    midi.uiFader("Camera Lens Radius", 3, 0);
+    ImGui::End();
+  });
 
   events.subscribe<MidiNoteEvent>([&](const MidiNoteEvent &e) {
     if (!e.on) {

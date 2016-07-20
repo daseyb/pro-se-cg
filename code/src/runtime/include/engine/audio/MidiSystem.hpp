@@ -63,4 +63,6 @@ public:
 
     bool startup() override;
     void shutdown() override;
+
+    bool uiFader(std::string name, int index, int channel = 0);
 };

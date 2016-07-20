@@ -7,8 +7,18 @@ uint wang_hash(uint seed) {
   return seed;
 }
 
+float modI(float a,float b) {
+    float m=a-floor((a+0.5)/b)*b;
+    return floor(m+0.5);
+}
+
 float wang_float(uint hash) {
   return hash / float(0x7FFFFFFF) / 2.0;
+}
+
+uint uniformUInt(uint min, uint max, inout uint random) {
+  random = wang_hash(random);
+  return (random % (max-min)) + min;
 }
 
 float uniformFloat(float min, float max, inout uint random) {
@@ -126,4 +136,16 @@ vec2 concentricSampleDisk(inout uint random) {
 
   theta *= PI / 4.0;
   return vec2(cos(theta), sin(theta)) * r;
+}
+
+vec3 samplePrimitive(Primitive p, inout uint random) {
+  float a1 = uniformFloat(0, 1, random);
+  float a2 = uniformFloat(0, 1, random);
+
+  if(a1 + a2 > 1) {
+    a1 = 1.0 - a1;
+    a2 = 1.0 - a2;
+  }
+
+  return p.a.pos + (p.b.pos - p.a.pos) * a1 + (p.c.pos - p.a.pos) * a2;
 }

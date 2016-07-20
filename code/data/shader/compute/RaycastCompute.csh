@@ -1,7 +1,6 @@
 #version 430
 
 const float MAX_DISTANCE = 500;
-const float EPSILON = 0.001;
 const float PI = 3.14159265359;
 
 #include "PrimitiveCommon.glsl"
@@ -19,7 +18,7 @@ uniform float totalTime;
 uniform uint uSeed;
 
 const int uMaxBounces = 2;
-const int uSampleCount = 2;
+const int uSampleCount = 5;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 
@@ -44,6 +43,7 @@ layout(std140, binding = 3) buffer LightBuffer {
 layout(std140, binding = 4) buffer MaterialBuffer {
   Material materials[];
 };
+
 
 // =============================================================================
 // Helper
@@ -190,29 +190,41 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, inout u
   vec3 specularColor = material.specularColor;
   vec3 diffuseColor = material.diffuseColor * (vec3(1) - specularColor);
 
-  for (int i = 0; i < lightCount; ++i) {
-    SphereLight l = lights[i];
+  uint lightId = uniformUInt(0, lightCount, random);
 
-    vec3 V = -inDir;
-    vec3 L = l.center + directionUniformSphere(random) * l.radius - pos;
-    float lightDis = length(L);
-    L /= lightDis;
-    
+  vec3 V = -inDir;
+  vec3 lPos = vec3(0);
+  vec3 lColor = vec3(0);
 
-    Ray r;
-    r.pos = pos;
-    r.dir = L;
+  if(lightId < lightCount) {
+    SphereLight l = lights[lightId];
+    lPos = l.center + directionUniformSphere(random) * l.radius;
+    lColor = l.color.rgb * l.color.a;
+  } else {
+    lightId -= lightCount;
 
-    if (intersect(r, lightDis, intr)) {
-      continue;
-    }
-
-    float p = 1.0/(lightDis * lightDis);
-    // diffuse
-    color += max(0.0, dot(L, N)) * l.color.rgb * l.color.a * p;
+    Primitive p = primitives[lightId];
+    Material m = materials[p.matId];
+    lPos = samplePrimitive(p, random);
+    lColor = m.emissiveColor;
   }
 
-  return color;
+  vec3 L = lPos - pos;
+  float lightDis = length(L);
+  L /= lightDis;
+    
+
+  Ray r;
+  r.pos = pos;
+  r.dir = L;
+
+  if (intersect(r, lightDis, intr)) {
+    return vec3(0);
+  }
+
+  float p = 1.0/(lightDis * lightDis);
+  // diffuse
+  return max(0.0, dot(L, N)) * lColor * p;
 }
 
 // =============================================================================

@@ -1,12 +1,12 @@
 struct Vertex {
-	vec3 pos;
-	float u;
-	vec3 norm;
-	float v;
+  vec3 pos;
+  float u;
+  vec3 norm;
+  float v;
 };
 
 struct Primitive {
-	Vertex a;
+  Vertex a;
   Vertex b;
   Vertex c;
   uint matId;
@@ -26,11 +26,13 @@ struct Material {
   float refractiveness;
   vec3 specularColor;
   float eta;
+  uint texId;
 };
 
 struct HitInfo {
   vec3 pos;
   vec3 norm;
+  vec2 uv;
   float t;
   uint matId;
   Material material;
@@ -41,6 +43,48 @@ struct SphereLight {
   float radius;
   vec4 color;
 };
+
+const float EPSILON = 0.00001;
+
+/*bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
+    vec3 edge1, edge2, tvec, pvec, qvec;
+    float det,inv_det;
+    float u, v, t;
+
+    edge1 = tri.b.pos - tri.a.pos;
+    edge2 = tri.c.pos - tri.a.pos;
+
+    pvec = cross(ray.dir, edge2);
+
+    det = dot(edge1, pvec);    
+
+    if(det > -EPSILON && det < EPSILON) return false;
+
+    inv_det = 1.0 / det;
+
+    tvec = ray.pos - tri.a.pos;
+
+    u = dot(tvec, pvec) * inv_det;
+    if(u < 0.0 || u > 1.0) {
+       return false;
+    }
+
+    qvec = cross(tvec, edge1);
+
+    v = dot(ray.dir, qvec) * inv_det;
+    if(v < 0 || u + v > 1.0) {
+       return false;
+    }
+
+    t = dot(edge2, qvec) * inv_det;
+
+    hit.norm = tri.a.norm * (1.0 - u - v)  + tri.b.norm * u + tri.c.norm * v;
+    hit.pos = ray.pos + t * ray.dir;
+    hit.t = t;
+    hit.matId = tri.matId;
+    
+    return true;
+}*/
 
 bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
     const float INFINITY = 1e10;
@@ -91,6 +135,7 @@ bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
     hit.norm = tri.a.norm * (1.0 - s - t) + tri.b.norm * s + tri.c.norm * t;
     hit.pos = ray.pos + r * ray.dir;
     hit.t = r;
+    hit.uv = vec2(tri.a.u, tri.a.v) * (1.0 - s - t) + vec2(tri.b.u, tri.b.v) * s + vec2(tri.c.u, tri.c.v) * t;
     hit.matId = tri.matId;
     
     return true;

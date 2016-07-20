@@ -29,8 +29,12 @@ bool GameLoopSystem::startup() {
       return;
     }
 
+    static auto prev = SDL_GetPerformanceCounter();
+    auto now = SDL_GetPerformanceCounter();
+
     static int frameTimeIndex = 0;
-    double totalFrameTime = m_lastSimulateFrameTime + m_lastPerpareDrawTime + m_lastDrawTime + m_lastSwapTime;
+    double totalFrameTime = (double)((now - prev)*1000) / SDL_GetPerformanceFrequency();
+    prev = now;
 
     m_frameTimeHistory[frameTimeIndex] = (float)totalFrameTime;
     frameTimeIndex = (frameTimeIndex + 1) % m_frameTimeHistory.size();
@@ -61,7 +65,7 @@ void GameLoopSystem::run() {
 
   Uint32 t = 0;
   Uint32 dt = Uint32(1000.0f / m_targetFrameRate);
-	Uint32 accumulator = dt;
+Uint32 accumulator = dt;
 
 
   do {

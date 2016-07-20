@@ -67,8 +67,14 @@ bool MidiSystem::startup() {
 
         ImGui::DragInt("Channel", &currentChannel, 1.0f, 0, CHANNEL_COUNT - 1);
 
-        ImGui::PlotHistogram("Values", m_controlValues[currentChannel], VALUE_COUNT, 0, NULL, 0,
-                             1.0f, glm::vec2(450, 100));
+        ImGui::PlotHistogram("Values",
+                             m_controlValues[currentChannel],
+                             VALUE_COUNT,
+                             0,
+                             NULL,
+                             0,
+                             1.0f,
+                             glm::vec2(450, 100));
 
         ImGui::Separator();
 
@@ -140,6 +146,15 @@ bool MidiSystem::startup() {
   m_events->subscribe<SimulateEvent>([&](const SimulateEvent &e) { update(); });
 
   return true;
+}
+
+bool MidiSystem::uiFader(std::string name, int index, int channel) {
+    float val = controlValue(index, channel);
+    if(ImGui::SliderFloat(name.c_str(), &val, 0, 1.0)) {
+        m_events->fire<MidiControlEvent>({channel, index, val});
+        return true;
+    }
+    return false;
 }
 
 void MidiSystem::update() {

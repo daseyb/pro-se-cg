@@ -50,7 +50,7 @@ struct RenderPass {
 class RendererSystem : public System {
 private:
   const ScreenSpaceSize G_BUFFER_SIZE[3] = {
-      ScreenSpaceSize::HALF, ScreenSpaceSize::FULL, ScreenSpaceSize::FULL};
+      ScreenSpaceSize::QUARTER, ScreenSpaceSize::HALF, ScreenSpaceSize::FULL};
 
   const size_t MAX_PRIMITIVE_COUNT = 32768;
   const size_t MAX_LIGHT_COUNT = 256;

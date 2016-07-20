@@ -216,25 +216,42 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
           auto mapping = drawCall.geometry.vao->getAttributeMapping();
 
-          auto posBuffer = drawCall.geometry.vao->getBufferForAttribute("aPosition");
+          SharedArrayBuffer posBuffer, normBuffer, uvBuffer;
+          bool hasPos = drawCall.geometry.vao->getBufferForAttribute("aPosition", posBuffer);
           auto idxBuffer = drawCall.geometry.vao->getIdxBuffer();
-          auto normBuffer = drawCall.geometry.vao->getBufferForAttribute("aNormal");
+          bool hasNormals = drawCall.geometry.vao->getBufferForAttribute("aNormal", normBuffer);
+          bool hasUvs = drawCall.geometry.vao->getBufferForAttribute("aTexCoord", uvBuffer);
 
           //We need at least positions, indices and normals
-          if (!posBuffer || !idxBuffer || !normBuffer) {
+          if (!hasPos || !idxBuffer) {
               continue;
           }
 
           {
               auto drawPrimCount = idxBuffer->getIndexCount() / 3;
 
-              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, posBuffer->getObjectName());
-              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, normBuffer->getObjectName());
-              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, idxBuffer->getObjectName());
-              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_primitiveBuffer->getObjectName());
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuffer->getObjectName());
+
+              if(hasNormals) {
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, normBuffer->getObjectName());
+              } else {
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, 0);
+              }
+
+              if(hasUvs) {
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, uvBuffer->getObjectName());
+              } else {
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, 0);
+              }
+
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, idxBuffer->getObjectName());
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_primitiveBuffer->getObjectName());
 
               boundCopyProgram.setUniform("sceneMin", glm::vec3(-1000.0));
               boundCopyProgram.setUniform("sceneMax", glm::vec3( 1000.0));
+
+              boundCopyProgram.setUniform("hasNormals", hasNormals);
+              boundCopyProgram.setUniform("hasUvs", hasUvs);
 
               boundCopyProgram.setUniform("materialId", (int)i);
               boundCopyProgram.setUniform("model2World", drawCall.thisRenderTransform);
@@ -275,6 +292,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
       }
   }
 
+
   {
       auto boundRaycastProgram = m_raycastComputeProgram->use();
 
@@ -291,7 +309,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
   // TXAA
   
-
+  glGetError();
   {
       // Set up gbuffer
       auto gBufferBind = m_gBufferObject->bind();

@@ -8,24 +8,31 @@ uniform int writeOffset;
 uniform mat4 model2World;
 uniform mat4 model2WorldInvTransp;
 
+uniform bool hasUvs;
+uniform bool hasNormals;
+
 uniform vec3 sceneMin;
 uniform vec3 sceneMax;
 
 
-layout(std430, binding = 0) buffer VertexBuffer { 
-	vec4 vertices[]; 
+layout(std140, binding = 0) buffer VertexBuffer { 
+  vec4 vertices[]; 
 };
 
-layout(std430, binding = 1) buffer NormalBuffer { 
-	vec4 normals[]; 
+layout(std140, binding = 1) buffer NormalBuffer { 
+  vec4 normals[]; 
 };
 
-layout(std430, binding = 2) buffer IndexBuffer {
+layout(std140, binding = 2) buffer UVBuffer { 
+  vec2 uvs[]; 
+};
+
+layout(std140, binding = 3) buffer IndexBuffer {
   uint indices[];
 };
 
-layout(std140, binding = 3) buffer PrimitiveBuffer { 
-	Primitive primitives[]; 
+layout(std140, binding = 4) buffer PrimitiveBuffer { 
+  Primitive primitives[]; 
 };
 
 
@@ -64,9 +71,19 @@ void main() {
     uint index = indices[indexIdxBase+i];
     Vertex currVert;
     currVert.pos = (model2World * vec4(vertices[index].xyz, 1)).xyz;
-    currVert.u = 0;
-    currVert.v = 0;
-    currVert.norm = normalize( (model2WorldInvTransp * vec4(normals[index].xyz, 0)).xyz );
+
+    if(hasUvs) {
+      currVert.u = uvs[index].x;
+      currVert.v = uvs[index].y;
+    } else {
+      currVert.u = 0;
+      currVert.v = 0;
+    }
+
+    if(hasNormals) {
+      currVert.norm = normalize( (model2WorldInvTransp * vec4(normals[index].xyz, 0)).xyz );
+    }
+
     verts[i] = currVert;
     center += verts[i].pos;
   }
@@ -74,6 +91,13 @@ void main() {
   center *= 1.0/3.0;
   
   uvec3 coords = getIntCoords(center);
+
+  if(!hasNormals) {
+     vec3 normal = normalize(cross(verts[1].pos - verts[0].pos, verts[2].pos - verts[0].pos));
+     verts[0].norm = normal;
+     verts[1].norm = normal;
+     verts[2].norm = normal;
+  }
   
   result.a = verts[0];
   result.b = verts[1];
