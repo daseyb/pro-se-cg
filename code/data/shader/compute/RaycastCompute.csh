@@ -19,7 +19,7 @@ uniform float totalTime;
 uniform uint uSeed;
 
 const int uMaxBounces = 2;
-const int uSampleCount = 1;
+const int uSampleCount = 2;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 

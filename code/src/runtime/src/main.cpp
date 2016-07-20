@@ -263,11 +263,15 @@ int main(int argc, char *argv[]) {
 
     float bucketsPerCube = float(length) / barTransforms.size();
 
+    if (length == 0) {
+        return;
+    }
+
     int currDataPos = 0;
     for (int i = 0; i < barTransforms.size(); i++) {
         float percentage = sqrt(1.0f- float(i+1) / (barTransforms.size()+1));
         int bucketCount = (int)(-log(percentage) * bucketsPerCube);
-        float subSum = 0;
+        float subSum = 0; 
         for (int j = currDataPos; j < currDataPos + bucketCount; j++) {
             assert(j < length);
             subSum += spectrumData[j];

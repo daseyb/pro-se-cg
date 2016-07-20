@@ -5,7 +5,7 @@
 #include <glow/common/log.hh>
 
 #define CHECK_RESULT(res, msg) if(res != FMOD_OK) {glow::error() << msg << "\n"; return false; }
-#define LATENCY_MS      (10) /* Some devices will require higher latency to avoid glitches */
+#define LATENCY_MS      (50) /* Some devices will require higher latency to avoid glitches */
 #define DRIFT_MS        (1)
 
 bool AudioSystem::startup() {
@@ -21,6 +21,12 @@ bool AudioSystem::startup() {
 
   result = m_fmodSystem->getVersion(&version);
   CHECK_RESULT(result, "Could not get fmod version.");
+
+  /*result = m_fmodSystem->setOutput(FMOD_OUTPUTTYPE_ASIO);
+  if (result != FMOD_OK) {
+      glow::debug() << "Could not use ASIO sound output. Expect higher latency! \n";
+      result = m_fmodSystem->setOutput(FMOD_OUTPUTTYPE_AUTODETECT);
+  }*/
 
   assert(version == FMOD_VERSION);
   result = m_fmodSystem->init(32, FMOD_INIT_NORMAL, 0);
