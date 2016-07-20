@@ -120,7 +120,7 @@ public:
 
   void setRenderPassSSAO(StringHash pass, bool active) {
     auto id = getRenderPassId(pass);
-    if (id == -1) {
+    if (id == (uint32_t)-1) {
       return;
     }
 
@@ -129,7 +129,7 @@ public:
 
   void setRenderPassActive(StringHash pass, bool active) {
     auto id = getRenderPassId(pass);
-    if (id == -1) {
+    if (id == (uint32_t)-1) {
       return;
     }
 
@@ -138,7 +138,7 @@ public:
 
   void setRenderPassOnlyTexture(StringHash pass, bool active) {
     auto id = getRenderPassId(pass);
-    if (id == -1) {
+    if (id == (uint32_t)-1) {
       return;
     }
 
@@ -147,7 +147,7 @@ public:
 
   glow::SharedTexture getRenderPassTarget(StringHash pass) {
     auto id = getRenderPassId(pass);
-    if (id == -1) {
+    if (id == (uint32_t)-1) {
       return nullptr;
     }
 

@@ -36,3 +36,4 @@
 *.trace
 transmittance.png
 .vscode/
+*.user*

@@ -21,12 +21,6 @@ bool SettingsSystem::startup() {
 
   glow::DefaultShaderParser::addIncludePath(m_resourcePath + m_shaderPath);
 
-  /*Settings::the()->setResourcePath(m_resourcePath);
-  Settings::the()->setTexturePath(m_texturePath);
-  Settings::the()->setGeometryPath(m_geometryPath);
-  Settings::the()->setShaderPath(m_shaderPath);*/
-
-  
   std::ifstream configFile(m_resourcePath + m_configFilePath);
 
   if (!configFile.is_open()) {

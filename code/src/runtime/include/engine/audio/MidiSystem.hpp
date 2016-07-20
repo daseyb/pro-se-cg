@@ -30,6 +30,7 @@ private:
     SettingsSystem* m_settings;
 
     PortMidiStream* m_inputStream;
+    PmDeviceID m_connectedDeviceID;
 
     float m_controlValues[CHANNEL_COUNT][VALUE_COUNT];
     float m_pitchBendValues[CHANNEL_COUNT];
@@ -50,6 +51,14 @@ public:
 
     MidiKeyState keyState(int index, int channel = 0) {
         return m_keyStates[channel][index];
+    }
+
+    void setDefaultControlValues(float val) {
+        for(int c = 0; c < CHANNEL_COUNT; c++) {
+            for(int i = 0; i< VALUE_COUNT; i++) {
+                m_controlValues[c][i] = val;
+            }
+        }
     }
 
     bool startup() override;
