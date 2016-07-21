@@ -197,7 +197,8 @@ vec3 sampleNormal(HitInfo hit) {
                              getNormalFromTexture(texture(materialTextures[mat.normalTexId], hit.uv).xyz);
 
   
-  vec3 worldNormal = hit.tangentSpace * tangentspace_normal;
+  vec3 worldNormal = hit.norm;
+  worldNormal.xy += tangentspace_normal.xy;
   return normalize(worldNormal);
 }
 
