@@ -29,7 +29,7 @@ struct Material {
   uint diffuseTexId;
   uint specularTexId;
   uint emissiveTexId;
-  uint pad_;
+  uint normalTexId;
 };
 
 struct HitInfo {
@@ -38,6 +38,7 @@ struct HitInfo {
   vec2 uv;
   float t;
   uint matId;
+  mat3 tangentSpace;
   Material material;
 };
 
@@ -100,7 +101,11 @@ bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
     hit.t = r;
     hit.uv = vec2(tri.a.u, tri.a.v) * (1.0 - s - t) + vec2(tri.b.u, tri.b.v) * s + vec2(tri.c.u, tri.c.v) * t;
     hit.matId = tri.matId;
-    
+
+    hit.tangentSpace[0] = -normalize(v);
+    hit.tangentSpace[2] = hit.norm; 
+    hit.tangentSpace[1] = normalize(cross(hit.tangentSpace[2], hit.tangentSpace[0]));
+
     return true;
 }
 

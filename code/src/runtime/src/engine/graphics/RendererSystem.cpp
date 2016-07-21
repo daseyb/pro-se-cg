@@ -68,7 +68,7 @@ struct GPULight {
     glm::vec4 color;
 };
 
-const glm::uint MAX_TEXTURES = 128;
+const glm::uint MAX_TEXTURES = 8;
 
 struct GPUMaterial {
     glm::vec3 diffuseColor;
@@ -80,7 +80,7 @@ struct GPUMaterial {
     glm::uint diffuseTexId;
     glm::uint specularTexId;
     glm::uint emissiveTexId;
-    glm::uint pad_;
+    glm::uint normalTexId;
 };
 
 bool RendererSystem::startup() {
@@ -216,7 +216,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
 
   size_t totalPrimitiveCount = 0;
 
-  std::map<SharedTexture2D, int> knownTexturesMap;
+  std::map<GLuint, int> knownTexturesMap;
   std::vector<GLuint> knowTextures;
 
   auto getTextureIndex = [&](SharedTexture2D tex) -> glm::uint {
@@ -224,9 +224,9 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
           return MAX_TEXTURES;
       }
 
-      auto it = knownTexturesMap.find(tex);
+      auto it = knownTexturesMap.find(tex->getObjectName());
       if (it == knownTexturesMap.end()) {
-          knownTexturesMap[tex] = knowTextures.size();
+          knownTexturesMap[tex->getObjectName()] = knowTextures.size();
           knowTextures.push_back(tex->getObjectName());
           return knowTextures.size() - 1;
       } 
@@ -246,7 +246,7 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
               mat.diffuseColor, mat.roughness, mat.emissiveColor,
               mat.refractiveness, mat.specularColor, mat.eta,
               getTextureIndex(mat.diffuseTexture), getTextureIndex(mat.specularTexture),
-              getTextureIndex(mat.emissiveTexture), 0});
+              getTextureIndex(mat.emissiveTexture),getTextureIndex(mat.normalsTexture) });
 
           // No geometry loaded for the draw call
           if (!drawCall.geometry.vao) {
@@ -337,6 +337,10 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
       auto boundRaycastProgram = m_raycastComputeProgram->use();
 
       glBindTextures(0, knowTextures.size(), knowTextures.data());
+
+      for (int i = 0; i < knowTextures.size(); i++) {
+          boundRaycastProgram.setUniform("materialTextures[" + std::to_string(i) + "]", i);
+      }
 
       boundRaycastProgram.setUniform("pixelOffset", glm::vec2(currentOffset));
       boundRaycastProgram.setUniform("primitiveCount", (int)totalPrimitiveCount);

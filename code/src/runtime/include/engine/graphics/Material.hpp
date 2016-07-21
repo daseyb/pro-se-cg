@@ -11,4 +11,5 @@ struct Material {
   glow::SharedTexture2D diffuseTexture;
   glow::SharedTexture2D specularTexture;
   glow::SharedTexture2D emissiveTexture;
+  glow::SharedTexture2D normalsTexture;
 };

@@ -17,10 +17,11 @@ uniform int lightCount;
 uniform float totalTime;
 uniform uint uSeed;
 
-uniform sampler2D materialTextures[128];
+const int MAX_TEXTURES = 8;
+uniform sampler2D materialTextures[MAX_TEXTURES];
 
 const int uMaxBounces = 2;
-const int uSampleCount = 5;
+const int uSampleCount = 3;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 
@@ -184,15 +185,31 @@ bool intersect(in Ray r, float maxDist, out HitInfo hit) {
 // =============================================================================
 // Illumination
 
+vec3 getNormalFromTexture(vec3 tex) {
+  return normalize(tex * 2 - vec3(1));
+}
+
+vec3 sampleNormal(HitInfo hit) {
+  Material mat = materials[hit.matId];
+  
+  vec3 tangentspace_normal = mat.normalTexId == MAX_TEXTURES ? 
+                             vec3(0, 0, 1) :
+                             getNormalFromTexture(texture(materialTextures[mat.normalTexId], hit.uv).xyz);
+
+  
+  vec3 worldNormal = hit.tangentSpace * tangentspace_normal;
+  return normalize(worldNormal);
+}
+
 vec3 sampleEmissiveColor(HitInfo hit) {
   Material mat = materials[hit.matId];
-  vec4 tex = mat.emissiveTexId == 128 ? vec4(1) : texture(materialTextures[mat.emissiveTexId], hit.uv);
+  vec4 tex = mat.emissiveTexId == MAX_TEXTURES ? vec4(1) : texture(materialTextures[mat.emissiveTexId], hit.uv);
   return tex.rgb * tex.a * mat.emissiveColor;
 }
 
 vec3 sampleDiffuseColor(HitInfo hit) {
   Material mat = materials[hit.matId];
-  vec4 tex = mat.diffuseTexId == 128 ? vec4(1) : texture(materialTextures[mat.diffuseTexId], hit.uv);
+  vec4 tex = mat.diffuseTexId == MAX_TEXTURES ? vec4(1) : texture(materialTextures[mat.diffuseTexId], hit.uv);
   return tex.rgb * mat.diffuseColor;
 }
 
@@ -257,9 +274,10 @@ vec3 trace(Ray r, inout uint random) {
     
     color += sampleEmissiveColor(intr) * weight;
     weight *= sampleDiffuseColor(intr);
-    color += directIllumination(intr.pos, r.dir, intr.norm, intr.material, random) * weight;
+    vec3 norm = sampleNormal(intr);
+    color += directIllumination(intr.pos, r.dir, norm, intr.material, random) * weight;
 
-    r.dir = directionCosTheta(intr.norm, random);
+    r.dir = directionCosTheta(norm, random);
     r.pos = intr.pos;
   }
   

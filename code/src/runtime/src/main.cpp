@@ -93,6 +93,10 @@ int main(int argc, char *argv[]) {
   glow::assimp::Importer().setGenerateSmoothNormal(false);
   glow::assimp::Importer().setGenerateUVCoords(false);
 
+  SharedTexture2D diffuseTex = Texture2D::createFromFile("data/textures/test_diffuse.png");
+  SharedTexture2D emissiveTex = Texture2D::createFromFile("data/textures/test_emissive.png");
+  SharedTexture2D normalTex = Texture2D::createFromFile("data/textures/test_normalmap.png");
+
   Geometry teapotGeom = {glow::assimp::Importer().load("data/geometry/teapot.obj")};
   Geometry testSceneGeom = {glow::assimp::Importer().load("data/geometry/test_scene.obj")};
   Geometry teddyGeom = {glow::assimp::Importer().load("data/geometry/teddy.obj")};
@@ -101,13 +105,23 @@ int main(int argc, char *argv[]) {
   Geometry icosphereGeom = {glow::assimp::Importer().load("data/geometry/icosphere.obj")};
 
   Material whiteMat = {
-      {0.8f, 0.8f, 0.8f}, 1.0f, { 20.0f, 20.0f, 20.0f }, 0.0f, { 0.0f, 0.0f, 0.0f }, 0.0, nullptr, nullptr,  Texture2D::createFromFile("data/textures/test_emissive.png") };
+      {0.8f, 0.8f, 0.8f},
+      1.0f,
+      {20.0f, 20.0f, 20.0f},
+      0.0f,
+      {0.0f, 0.0f, 0.0f},
+      0.0,
+      nullptr,
+      nullptr,
+      emissiveTex,
+      nullptr,
+  };
   Entity teapotCenter = sceneGraph.create();
   auto boxTrans = teapotCenter.assign<Transform>();
   teapotCenter.assign<Drawable>(testSceneGeom, whiteMat);
 
   Material emissiveMat = {
-      { 1.0f, 1.0f, 1.0f }, 0.0f,{ 5.0f, 1.0f, 1.0f }, 0.0f,{ 0.0f, 0.0f, 0.0f }, 0.0 };
+      { 1.0f, 1.0f, 1.0f }, 0.0f,{ 15.0f, 1.0f, 1.0f }, 0.0f,{ 0.0f, 0.0f, 0.0f }, 0.0 };
   Entity icosphereSide = sceneGraph.create();
   auto teapotSideTransform = icosphereSide.assign<Transform>();
   teapotSideTransform->position = {-10, 0, 0};
@@ -133,7 +147,25 @@ int main(int argc, char *argv[]) {
   std::vector<Transform::Handle> barTransforms;
   std::vector<Entity> barEntities;
 
+  Material cubeMat = {
+      { 0.8f, 0.8f, 0.8f },
+      1.0f,
+      { 0.0f, 0.0f, 0.0f },
+      0.0f,
+      { 0.0f, 0.0f, 0.0f },
+      0.0,
+      diffuseTex,
+      nullptr,
+      nullptr,
+      normalTex,
+  };
+
   Geometry cubeGeom = { glow::assimp::Importer().load("data/geometry/cube.obj") };
+
+  auto cubeEntity = sceneGraph.create();
+  auto cubeTransform = cubeEntity.assign<Transform>();
+  cubeTransform->position = glm::vec3(-5, -1, -5);
+  cubeEntity.assign<Drawable>(cubeGeom, cubeMat);
 
   for (int i = 0; i < 10; i++) {
       auto barEntity = sceneGraph.create();
