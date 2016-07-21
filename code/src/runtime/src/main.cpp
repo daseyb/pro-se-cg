@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
   Geometry icosphereGeom = {glow::assimp::Importer().load("data/geometry/icosphere.obj")};
 
   Material whiteMat = {
-      {0.8f, 0.8f, 0.8f}, 1.0f, {0.0f, 0.0f, 0.0f}, 0.0f, { 0.0f, 0.0f, 0.0f }, 0.0 };
+      {0.8f, 0.8f, 0.8f}, 1.0f, { 20.0f, 20.0f, 20.0f }, 0.0f, { 0.0f, 0.0f, 0.0f }, 0.0, nullptr, nullptr,  Texture2D::createFromFile("data/textures/test_emissive.png") };
   Entity teapotCenter = sceneGraph.create();
   auto boxTrans = teapotCenter.assign<Transform>();
   teapotCenter.assign<Drawable>(testSceneGeom, whiteMat);

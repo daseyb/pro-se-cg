@@ -1,5 +1,5 @@
 {
-  "resolution": [1280, 720],
+  "resolution": [640, 480],
   "target_fps": 60,
   "vsync": true,
   "fullscreen": false,

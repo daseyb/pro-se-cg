@@ -17,16 +17,18 @@ uniform int lightCount;
 uniform float totalTime;
 uniform uint uSeed;
 
+uniform sampler2D materialTextures[128];
+
 const int uMaxBounces = 2;
 const int uSampleCount = 5;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 
-layout(std140, binding = 1) buffer PrimitiveBuffer { 
+layout(std430, binding = 1) buffer PrimitiveBuffer { 
 	Primitive primitives[]; 
 };
 
-layout(std140, binding = 2) buffer CameraBuffer {
+layout(std430, binding = 2) buffer CameraBuffer {
    vec3 pos;
    float fov;
    mat4 invProj;
@@ -36,13 +38,14 @@ layout(std140, binding = 2) buffer CameraBuffer {
    float focalDistance;
 } cam;
 
-layout(std140, binding = 3) buffer LightBuffer {
+layout(std430, binding = 3) buffer LightBuffer {
   SphereLight lights[];
 };
 
-layout(std140, binding = 4) buffer MaterialBuffer {
+layout(std430, binding = 4) buffer MaterialBuffer {
   Material materials[];
 };
+
 
 
 // =============================================================================
@@ -181,6 +184,18 @@ bool intersect(in Ray r, float maxDist, out HitInfo hit) {
 // =============================================================================
 // Illumination
 
+vec3 sampleEmissiveColor(HitInfo hit) {
+  Material mat = materials[hit.matId];
+  vec4 tex = mat.emissiveTexId == 128 ? vec4(1) : texture(materialTextures[mat.emissiveTexId], hit.uv);
+  return tex.rgb * tex.a * mat.emissiveColor;
+}
+
+vec3 sampleDiffuseColor(HitInfo hit) {
+  Material mat = materials[hit.matId];
+  vec4 tex = mat.diffuseTexId == 128 ? vec4(1) : texture(materialTextures[mat.diffuseTexId], hit.uv);
+  return tex.rgb * mat.diffuseColor;
+}
+
 // direct illu at a given point
 // inDir points TOWARDS the surface
 vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, inout uint random) {
@@ -240,8 +255,8 @@ vec3 trace(Ray r, inout uint random) {
       break;
     }
     
-    color += intr.material.emissiveColor * weight;
-    weight *= intr.material.diffuseColor;
+    color += sampleEmissiveColor(intr) * weight;
+    weight *= sampleDiffuseColor(intr);
     color += directIllumination(intr.pos, r.dir, intr.norm, intr.material, random) * weight;
 
     r.dir = directionCosTheta(intr.norm, random);

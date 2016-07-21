@@ -68,6 +68,21 @@ struct GPULight {
     glm::vec4 color;
 };
 
+const glm::uint MAX_TEXTURES = 128;
+
+struct GPUMaterial {
+    glm::vec3 diffuseColor;
+    float roughness;
+    glm::vec3 emissiveColor;
+    float refractiveness;
+    glm::vec3 specularColor;
+    float eta;
+    glm::uint diffuseTexId;
+    glm::uint specularTexId;
+    glm::uint emissiveTexId;
+    glm::uint pad_;
+};
+
 bool RendererSystem::startup() {
   RESOLVE_DEPENDENCY(m_settings);
   RESOLVE_DEPENDENCY(m_events);
@@ -119,8 +134,8 @@ bool RendererSystem::startup() {
 
   m_sortPrimitiveProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
 
-  m_raycastComputeProgram->setShaderStorageBuffer("CameraBuffer", m_camDataBuffer);
   m_raycastComputeProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
+  m_raycastComputeProgram->setShaderStorageBuffer("CameraBuffer", m_camDataBuffer);
   m_raycastComputeProgram->setShaderStorageBuffer("LightBuffer", m_lightDataBuffer);
   m_raycastComputeProgram->setShaderStorageBuffer("MaterialBuffer", m_materialDataBuffer);
 
@@ -194,20 +209,44 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   auto camPos = glm::vec3(camTransform * glm::vec4{ 0, 0, 0, 1 });
 
   CameraData camData { camPos, glm::radians(cam->fov), glm::inverse(aaProj), viewMatrix, viewMatrixInverse, cam->lensRadius, cam->focalDistance };
-  auto camDataBinding = m_camDataBuffer->bind();
-  camDataBinding.setData(camData, GL_DYNAMIC_DRAW);
+  {
+      auto camDataBinding = m_camDataBuffer->bind();
+      camDataBinding.setData(camData, GL_DYNAMIC_DRAW);
+  }
 
   size_t totalPrimitiveCount = 0;
 
-  std::vector<Material> materials;
+  std::map<SharedTexture2D, int> knownTexturesMap;
+  std::vector<GLuint> knowTextures;
+
+  auto getTextureIndex = [&](SharedTexture2D tex) -> glm::uint {
+      if (!tex) {
+          return MAX_TEXTURES;
+      }
+
+      auto it = knownTexturesMap.find(tex);
+      if (it == knownTexturesMap.end()) {
+          knownTexturesMap[tex] = knowTextures.size();
+          knowTextures.push_back(tex->getObjectName());
+          return knowTextures.size() - 1;
+      } 
+      return it->second;
+  };
+
+  std::vector<GPUMaterial> materials;
 
   {
       auto boundCopyProgram = m_copyPrimitiveProgram->use();
 
       for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
           auto drawCall = pass.submittedDrawCallsOpaque[i];
+          auto mat = drawCall.material;
 
-          materials.push_back(drawCall.material);
+          materials.push_back({
+              mat.diffuseColor, mat.roughness, mat.emissiveColor,
+              mat.refractiveness, mat.specularColor, mat.eta,
+              getTextureIndex(mat.diffuseTexture), getTextureIndex(mat.specularTexture),
+              getTextureIndex(mat.emissiveTexture), 0});
 
           // No geometry loaded for the draw call
           if (!drawCall.geometry.vao) {
@@ -230,12 +269,12 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
           {
               auto drawPrimCount = idxBuffer->getIndexCount() / 3;
 
-              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuffer->getObjectName());
+              glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, posBuffer->getObjectName());
 
               if(hasNormals) {
-                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, normBuffer->getObjectName());
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, normBuffer->getObjectName());
               } else {
-                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, 0);
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
               }
 
               if(hasUvs) {
@@ -293,8 +332,11 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   }
 
 
+
   {
       auto boundRaycastProgram = m_raycastComputeProgram->use();
+
+      glBindTextures(0, knowTextures.size(), knowTextures.data());
 
       boundRaycastProgram.setUniform("pixelOffset", glm::vec2(currentOffset));
       boundRaycastProgram.setUniform("primitiveCount", (int)totalPrimitiveCount);

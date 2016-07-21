@@ -15,23 +15,23 @@ uniform vec3 sceneMin;
 uniform vec3 sceneMax;
 
 
-layout(std140, binding = 0) buffer VertexBuffer { 
+layout(std430, binding = 0) buffer VertexBuffer { 
   vec4 vertices[]; 
 };
 
-layout(std140, binding = 1) buffer NormalBuffer { 
+layout(std430, binding = 1) buffer NormalBuffer { 
   vec4 normals[]; 
 };
 
-layout(std140, binding = 2) buffer UVBuffer { 
+layout(std430, binding = 2) buffer UVBuffer { 
   vec2 uvs[]; 
 };
 
-layout(std140, binding = 3) buffer IndexBuffer {
+layout(std430, binding = 3) buffer IndexBuffer {
   uint indices[];
 };
 
-layout(std140, binding = 4) buffer PrimitiveBuffer { 
+layout(std430, binding = 4) buffer PrimitiveBuffer { 
   Primitive primitives[]; 
 };
 
@@ -82,6 +82,8 @@ void main() {
 
     if(hasNormals) {
       currVert.norm = normalize( (model2WorldInvTransp * vec4(normals[index].xyz, 0)).xyz );
+    } else {
+      currVert.norm = vec3(1, 0, 0);
     }
 
     verts[i] = currVert;
@@ -104,6 +106,7 @@ void main() {
   result.c = verts[2];
   result.matId = materialId;
   result.sortCode = EncodeMorton3(coords);
+  result.pad_ = vec2(0);
   
   primitives[writeOffset + primIdx] = result;
  }
