@@ -216,41 +216,7 @@ As such, if $f$ is proportional to $p$ the variance of the resulting Monte Carlo
 In the case of path tracing $f = \rho(x,x',x'')I(x',x'')$ where $\rho$ is a BRDF. The factor of $f$ that makes it especially hard to integrate analytically or approximate is $I(x',x'')$ since $I$ is defined recursively (see Equation \eqref{eq:rendering-equation}). If we disregard $I(x',x'')$ we are left with $\rho(x,x',x'')$ which is much easier to reason about. While not all BRDFs can be solved analytically \cite{Montes2012} they are usually designed to be sampled with a given probability distribution, which gives us the approximation $p$ we were looking for. 
 
 
-The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using the distribution in Figure \ref{fig:cosine-dist} we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. The difference is quite obvious in Figure \ref{fig:rendering-cos-weighted}. Even at just 50 samples per pixels the left image is not particularly noisy, compared to the right image which uses uniform sampling.
-
-To keep the expected value of the Monte Carlo integration the same we need to account for the fact that we are no longer sampling $f$ uniformly. This is done by adjusting the probability distribution $p$ in Equation \eqref{eq:monte-carlo-prob}.
-
-There is a lot of value in finding a good approximation to a BRDF since sampling even relatively complex approximations is very cheap compared intersection tests. Better importance sampling directly correlates with less variance and thus reduces the number of needed path samples per pixel dramatically.
-
-\begin{figure}[htb!]
-  \begin{centering}
-  \begin{tikzpicture}
-   \begin{polaraxis}[xmin=0,xmax=180,ymax=1,
-    ytick align=outside,
-    yticklabel style={
-        anchor=north,
-        yshift=-2*\pgfkeysvalueof{/pgfplots/major tick length}
-    }]
-    \addplot+[mark=f,domain=0:180,samples=600] 
-		{cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75 }; 
-	\addplot+[mark=f,domain=0:180,samples=600] 
-		{ cos(x-90)};
-		
-    \addplot+[dashed, polar comb,domain=10:170, samples=6,black,opacity=0.75,mark=x]
-	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
-	\addplot+[dashed, polar comb,domain=25:135, samples=5,black,opacity=0.75,mark=x]
-	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02)/1.75  };
-	\addplot+[dashed, polar comb,domain=50:125, samples=2,black,opacity=0.75,mark=x]
-	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
-	\addplot+[dashed, polar comb,domain=75:115, samples=4,black,opacity=0.75,mark=x]
-	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
-    \legend{$f$, $p$}
-	\end{polaraxis}
-  \end{tikzpicture}\par
-  \end{centering}
-  \caption{Sampling a distribution $p$ which only accounts for Lambert's cosine law}
-  \label{fig:cosine-dist}
-\end{figure}
+The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using an appropriate distribution for our outgoing directions we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. The difference is quite obvious in Figure \ref{fig:rendering-cos-weighted}. Even at just 50 samples per pixels the left image is not particularly noisy, compared to the right image which uses uniform sampling.
 
 \begin{figure}[htb!]
   \centering
@@ -259,6 +225,12 @@ There is a lot of value in finding a good approximation to a BRDF since sampling
   \caption{Left: Cosine Weighted Sampling, Right: Uniform Sampling}
   \label{fig:rendering-cos-weighted}
 \end{figure}
+
+To keep the expected value of the Monte Carlo integration the same we need to account for the fact that we are no longer sampling $f$ uniformly. This is done by adjusting the probability distribution $p$ in Equation \eqref{eq:monte-carlo-prob}.
+
+There is a lot of value in finding a good approximation to a BRDF since sampling even relatively complex approximations is very cheap compared intersection tests. Better importance sampling directly correlates with less variance and thus reduces the number of needed path samples per pixel dramatically.
+
+
 
 \subsection{Temporal Supersampling}
 Ray tracing research has mostly focused on the previous area for variance reduction since the common use case is rendering still images.
