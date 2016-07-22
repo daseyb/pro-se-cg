@@ -94,6 +94,7 @@ int main(int argc, char *argv[]) {
   glow::assimp::Importer().setGenerateUVCoords(false);
 
   SharedTexture2D diffuseTex = Texture2D::createFromFile("data/textures/test_diffuse.png");
+  SharedTexture2D vciLogoTex = Texture2D::createFromFile("data/textures/vci_logo.png");
   SharedTexture2D emissiveTex = Texture2D::createFromFile("data/textures/test_emissive.png");
   SharedTexture2D normalTex = Texture2D::createFromFile("data/textures/test_normalmap.png");
 
@@ -113,7 +114,7 @@ int main(int argc, char *argv[]) {
       0.0,
       nullptr,
       nullptr,
-      emissiveTex,
+      vciLogoTex,
       nullptr,
   };
   Entity teapotCenter = sceneGraph.create();
@@ -272,7 +273,7 @@ int main(int argc, char *argv[]) {
     teapotPos += e.dt * midi.controlValue(2);
     teapotSideTransform->position =
         glm::vec3(sinf(teapotPos), 0.0f, cosf(teapotPos)) * 5.0f;
-    teapotSideTransform->scale = glm::vec3(teapotScale + sinf(e.totalTime*10.0f)*midi.controlValue(0)*0.5f);
+    //teapotSideTransform->scale = glm::vec3(teapotScale + sinf(e.totalTime*10.0f)*midi.controlValue(0)*0.5f);
 
     light01->color.a = midi.controlValue(4) * 150;
     light02->color.a = midi.controlValue(5) * 150;

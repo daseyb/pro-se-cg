@@ -1,9 +1,9 @@
 {
-  "resolution": [640, 480],
+  "resolution": [512, 512],
   "target_fps": 60,
   "vsync": true,
   "fullscreen": false,
-  "quality": "low",
+  "quality": "medium",
   "ssao": false,
   "scene": "AtmosphereTest",
   "midiInputDevice": "loopMIDI Port"

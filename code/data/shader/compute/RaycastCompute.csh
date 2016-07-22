@@ -21,7 +21,7 @@ const int MAX_TEXTURES = 8;
 uniform sampler2D materialTextures[MAX_TEXTURES];
 
 const int uMaxBounces = 2;
-const int uSampleCount = 3;
+const int uSampleCount = 4;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 
@@ -273,13 +273,19 @@ vec3 trace(Ray r, inout uint random) {
       break;
     }
     
-    color += sampleEmissiveColor(intr) * weight;
-    weight *= sampleDiffuseColor(intr);
     vec3 norm = sampleNormal(intr);
-    color += directIllumination(intr.pos, r.dir, norm, intr.material, random) * weight;
 
-    r.dir = directionCosTheta(norm, random);
+    vec3 outDir = directionCosTheta(norm, random);
+    float pdf = 1;
+    //vec3 outDir = directionUniform(norm, random);
+    //float pdf = dot(norm, outDir) * 2;
+
+    color += sampleEmissiveColor(intr) * weight;
+    weight *= sampleDiffuseColor(intr)  * pdf;
+
+    color += directIllumination(intr.pos, r.dir, norm, intr.material, random) * weight;
     r.pos = intr.pos;
+    r.dir = outDir;
   }
   
   return color;

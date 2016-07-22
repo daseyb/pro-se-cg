@@ -39,22 +39,6 @@ vec3 uniformVec3(vec3 min, vec3 max, inout uint random) {
   return vec3(x, y, z);
 }
 
-vec3 directionCosTheta(vec3 normal, inout uint random) {
-  float u1 = uniformFloat(0, 1, random);
-  float phi = uniformFloat(0, 2 * PI, random);
-
-  float f = sqrt(1 - u1);
-
-  float x = f * cos(phi);
-  float y = f * sin(phi);
-  float z = sqrt(u1);
-
-  vec3 xDir = abs(normal.x) < abs(normal.y) ? vec3(1, 0, 0) : vec3(0, 1, 0);
-  vec3 yDir = normalize(cross(normal, xDir));
-  xDir = cross(yDir, normal);
-  return xDir * x + yDir * y + z * normal;
-}
-
 vec3 directionUniformSphere(inout uint random) {
   float u1 = uniformFloat(0, 1, random);
   float phi = uniformFloat(0, 2 * PI, random);
@@ -67,6 +51,22 @@ vec3 directionUniformSphere(inout uint random) {
   vec3 dir = vec3(x, y, z);
 
   return dir;
+}
+
+vec3 directionCosTheta(vec3 normal, inout uint random) {
+  float u1 = uniformFloat(0, 1, random);
+  float phi = uniformFloat(0, 2 * PI, random);
+
+  float r = sqrt(u1);
+
+  float x = r * cos(phi);
+  float y = r * sin(phi);
+  float z = sqrt(1.0 - u1);
+
+  vec3 xDir = abs(normal.x) < abs(normal.y) ? vec3(1, 0, 0) : vec3(0, 1, 0);
+  vec3 yDir = normalize(cross(normal, xDir));
+  xDir = cross(yDir, normal);
+  return xDir * x + yDir * y + z * normal;
 }
 
 vec3 directionUniform(vec3 normal, inout uint random) {
