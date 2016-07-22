@@ -54,14 +54,6 @@ Ray tracing is a technique used to synthesize photo-realistic images from a 3D s
 
 Real time ray tracing is appealing, especially in the context of creative work, because it allows artists to preview changes to the scene immediately. Where you previously had to change the position or color of a light and wait until the next day to review the difference you can now tweak scenes interactively. This leads to a lower turn around time on changes in visuals and thus higher quality results.
 
-\begin{figure}[htb!]
-  \begin{centering}
-    \includegraphics[width=12cm,natwidth=1307,natheight=682]{figures/blender_preview.png}\par
-  \end{centering}
-  \caption{Interactive ray traced scene view in Blender (blender.org).}
-  \label{fig:blender_preview}
-\end{figure}
-
 In this report I will:
 \begin{itemize}
 \item Describe a state of the art ray tracing algorithm. (Section \ref{path-tracing})
@@ -113,12 +105,26 @@ The main difference between rendering algorithms is how they approach the evalua
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Second Section
 \section{Overview over the path tracing algorithm} \label{path-tracing}
-Path tracing is an algorithm which solves the integral in Eq. \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". \cite{veach1997robust} Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The final value of a path sample is calculated using Equation \eqref{eq:rendering-equation}, recursively evaluating it from $x_0$ to $x_n$. 
+Path tracing is an algorithm which solves the integral in Eq. \eqref{eq:rendering-equation} by randomly sampling it. This process is also called "Monte Carlo integration". \cite{veach1997robust} 
+The mathematical basis for Monte Carlo integration is illustrated in Equation \eqref{eq:monte-carlo}. We know from basic statistics that the expected value of a function $f$ is the integral of that function times the probability distribution $p$ from which the random samples are drawn.
+
+\begin{equation}\label{eq:monte-carlo}
+E_N[f(x)] = \int{f(x)p(x)dx} \approx \frac{1}{N} \sum_{i=1}^{N}{ f(X_i) }   , X_i \sim p 
+\end{equation}
+
+Since we want to compute an approximate value for $\int{f(x)dx}$ we are actually looking for the expected value of $\frac{f(x)}{p(x)}$ as shown in Equation \eqref{eq:monte-carlo-prob}.
+
+\begin{equation}\label{eq:monte-carlo-prob}
+\int{f(x)dx} = \int{\frac{f(x)}{p(x)}p(x)dx} = E_N[\frac{f(x)}{p(x)}] \approx \frac{1}{N} \sum_{i=1}^{N}{ \frac{f(X_i)}{p(X_i)} }   , X_i \sim p 
+\end{equation}
+
+Each sample is represented by a list of points $(x_0, ..., x_n), x_i \in \R^3$ which form a path through space. This is similar to Whitted Ray Tracing, except that the points are randomly chosen instead of being predetermined by the reflection and refraction directions. The final value of a path sample is calculated using Equation \eqref{eq:rendering-equation}, recursively evaluating it from $x_0$ to $x_n$. 
+In Figure \ref{path-tracing} an example of such a randomly generated path is shown. Note that this path contributes the the final image since it starts at the eye and ends on a light source.
 
 \begin{figure}[htb!]
   \centering
   \input{figures/light-path.tex}
-  \caption{A light path through a scene.}
+  \caption{A light path through a scene which contributes to the final image.}
   \label{fig:light-path}
 \end{figure}
 
@@ -147,31 +153,10 @@ In classical path tracing paths start at a point on the image plane. A first int
   \label{fig:scattering-event}
 \end{figure}
 
+Figure \ref{fig:scattering-event} shows the geometry involved in a single scattering event. An incoming ray $\overrightarrow{x_{i-1}x_i}$ is scattered at point $x_i$ on some object in the scene. The new direction $\overrightarrow{x_ix_{i+1}}$ is chosen randomly and the contribution of light coming in along $\overrightarrow{x_ix_{i+1}}$ is based on the material properties of the surface. These material properties are most commonly described in the form of a Bidirectional Reflectance Distribution Function (BRDF). There are many classes of BRDFs to describe the many different ways light interacts with surfaces, but describing them in detail is outside of the scope of this report.
+
 A path is terminated when (1) it reaches a light source (2) the maximum path length is reached (3) no intersection is found.
-The reason why paths start at the camera is that a path which starts at some point on the surface of a light source is very unlikely to hit the image plane. More sophisticated methods like Bidirectional Path Tracing start rays at both ends and try to connect them, but those are outside the scope of this report.
-
-\section{Acceleration Structures} \label{acceleration}
-Intersection tests are by far the most expensive part of any ray tracing algorithm. \cite[7]{Whitted:1980} This is true even for simple scenes, but becomes a major performance issue in large scenes. Ideally we would like the performance of a ray tracer to be independent from scene complexity, but this is no possible when using a classical polygon based scene representation.
-Rasterization renderers usually perform a culling operation to exclude objects which are not in view of the camera from being rendered. Unfortunately that is not helpful for path tracing since secondary rays can require intersection tests with off-screen objects.
-The naive implementation of a ray cast performs an intersection test with every primitive in the scene. Hence it scales linearly with the number of primitives. Acceleration structures which partition either objects or space allow us to do better. They generally reduce the time complexity of a ray cast from $O(n)$ to $O(\log n)$ in the number of primitives. In the following I will discuss various commonly used acceleration structures. The main trade off is usually construction time versus ray tracing performance. Generally, structures which offer better ray tracing performance take longer to set up and are mostly suited for static scenes, while structures which trade in some ray tracing performance for shorter set up times are better suited for real time applications and dynamic scenes. \cite{Karras:2012:MPC:2383795.2383801}
-
-\subsection{BSP and KD-Trees}
-The first class of acceleration structures are space partitioning trees. They split the scene into smaller and smaller sub-spaces which are wholly contained in their parent space. It is also recorded which objects belong to which sub-space. Once the tree is constructed a ray-scene intersection algorithm can start at the root node and only traverse into sub trees if the ray intersects with their parent node. Actual ray-primitive intersection tests are only necessary once a leaf node is reached. If the tree is well constructed this reduces the number of intersection tests dramatically.
-BSP Trees split space recursively along splitting planes. In the general BSP tree the orientation of the splitting plane can be chosen freely. KD-trees are a subclass of BSP trees where the splitting planes are axis aligned. This makes kd-trees substantially easier to construct since there are less degrees of freedom for the splitting planes. The drawback is that there are situations where a BSP tree might be faster to traverse than a kd-tree.
-Algorithms which construct an optimal kd-tree are NP complete. [TODO:FIND REFERENCE] In practice heuristics are used, the most successful one being the surface area heuristic. \cite{MacDonald1990}
-
-\begin{figure}[htb!]
-  \centering
-  \input{figures/BSP_trees.tex}
-  \caption{A scene which can be split using a BSP tree, but not a kd-tree.}
-  \label{fig:bsp-trees}
-\end{figure}
-
-Efficient traversal is achieved by always traversing the child node which lies closer to the ray origin first.
-
-\subsection{Bounding Volume Hierarchies}
-On a first glance BVHs look very similar to BSP trees. The difference is that BVHs group objects together while BSP trees split space recursively. A common choice for bounding volumes are spheres and axis aligned bounding boxes because they are cheap to construct, require little additional memory and their ray intersection tests are fast. More complex bounding volumes like object oriented bounding boxes, discrete oriented polytopes or convex hulls are attractive because they can provide a tighter fit, but this is usually far outweighed by the added complexity and storage requirements.
-Again, algorithms which find optimal BVHs are NP complete and heuristics have to be used.
+The reason why paths start at the camera is that a path which starts at some point on the surface of a light source is very unlikely to hit the image plane and thus likely to not contribute the the image. More sophisticated methods like Bidirectional Path Tracing start rays at both ends and try to connect them. They produce better results, but are harder to implement, especially on GPGPUs.
 
 \section{Reducing Noise} \label{noise}
 For classical path tracing to converge to a stable solution we need to sample thousands of paths for each pixel. Since sampling a path requires intersection tests which are already the bottleneck of the pipeline this is not something we can afford under the constraints of real time rendering. The lack of samples results in a high variance between pixels which is expressed as noise. While uniform noise is one of the more pleasant artefacts in computer graphics it still impacts the perceived quality of rendered images. [TODO: FIND STUDY]
@@ -184,7 +169,19 @@ In the following I will describe two approaches to reduce variance and improve i
 \subsection{Importance Sampling}
 In his thesis Eric Veach presents a number of ways to reduce variance in Monte Carlo algorithms. \cite[45--70]{veach1997robust} I will focus on importance sampling \cite[47--48]{veach1997robust}, because it is easy to integrate into existing algorithms. Other techniques such as Bidirectional Path Tracing or Metropolis Light Transport produce better results, but are more complicated to implement correctly, especially on the GPU.
 
-The idea of importance sampling is to concentrate our efforts on parts of the integral in Equation \eqref{eq:rendering-equation} which have a large value. That is, we would rather sample paths which contribute a lot to the image than paths which barely do. To achieve this we choose a function $g$ that is as similar as possible to the function $f$ we want to evaluate and which can be sampled efficiently. A common technique is to approximate or disregard factors in f until we arrive at a function which can be integrated analytically. In the case of path tracing $f = p(x,x',x'')I(x',x'')$ where $p$ is a BRDF. The factor of $f$ that makes it especially hard to integrate analytically or approximate is $I(x',x'')$ since $I$ is defined recursively (see Equation \eqref{eq:rendering-equation}). If we disregard $I(x',x'')$ we are left with $p(x,x',x'')$ which is much easier to reason about. While not all BRDFs can be solved analytically \cite{Montes2012} they are usually designed to be sampled with a given probability distribution, which gives us the approximation $g$ we were looking for. 
+The idea of importance sampling is to concentrate our efforts on parts of the integral in Equation \eqref{eq:rendering-equation} which have a large value. That is, we would rather sample paths which contribute a lot to the image than paths which barely do. To achieve this we choose a function $p$ that is as similar as possible to the function $f$ we want to evaluate and which can be sampled efficiently. A common technique is to approximate or disregard factors in f until we arrive at a function which can be integrated analytically. The mathematical reasoning for why a $p$ with $f(x) \propto p(x)$ would be ideal is given in Equation \eqref{variance}.
+
+\begin{equation}\label{variance}
+\begin{split}
+V(\frac{f(x)}{p(x)}) & = E((\frac{f(x)}{p(x)})^2) - E(\frac{f(x)}{p(x)})^2 \\ & \approx \frac{1}{N}\sum_{i=1}^{N}{(\frac{f(X_i)}{p(X_i)})^2} - (\frac{1}{N}\sum_{i=1}^{N}{\frac{f(X_i)}{p(X_i)}})^2 
+ = \frac{1}{N}\sum_{i=1}^{N}{(\frac{f(X_i)}{p(X_i)})^2} - \frac{1}{N^2}(\sum_{i=1}^{N}{\frac{f(X_i)}{p(X_i)}})^2 \\
+& \underset{\mathrm{f(x) \propto p(x)}}{=} \frac{1}{N}\sum_{i=1}^{N}{c^2} - \frac{1}{N^2}(\sum_{i=1}^{N}{c})^2
+ = \frac{1}{N}N{c^2} - \frac{1}{N^2}(N{c})^2
+ = c^2 - c^2 = 0 
+\end{split}
+\end{equation}
+
+As such, if $f$ is proportional to $p$ the variance of the resulting Monte Carlo integrator is $0$. It is easy to show that this is a continuous relation, i.e. the closer $f$ and $p$ get to being proportional, the lower the variance.
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -207,22 +204,21 @@ The idea of importance sampling is to concentrate our efforts on parts of the in
 	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
 	\addplot+[dashed, polar comb,domain=105:125, samples=3,black,opacity=0.75,mark=x]
 	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
-	\legend{$f$, $g$}
+	\legend{$f$, $p$}
 	\end{polaraxis}
   \end{tikzpicture}\par
   \end{centering}
-  \caption{Approximating a complicated function $f$ by a simpler function $g$ and sampling $f$ based on the probability distribution of $g$. Note how we are more likely to sample the $f$ in directions where it has a large value.\protect\footnotemark}
+  \caption{Approximating a complicated function $f$ by a simpler function $p$ and sampling $f$ based on the probability distribution of $p$. Note how we are more likely to sample the $f$ in directions where it has a large value.\protect\footnotemark}
   \label{fig:importance-sampling}
 \end{figure}
-\footnotetext{$f$ and $g$ are chosen for illustration purposes only and are not supposed to represent an actual BRDF.}
+\footnotetext{$f$ and $p$ are chosen for illustration purposes only and are not supposed to represent an actual BRDF.}
 
-The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using the distribution in Figure \ref{fig:cosine-dist} we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. [TODO: REFERENCE]
+In the case of path tracing $f = \rho(x,x',x'')I(x',x'')$ where $\rho$ is a BRDF. The factor of $f$ that makes it especially hard to integrate analytically or approximate is $I(x',x'')$ since $I$ is defined recursively (see Equation \eqref{eq:rendering-equation}). If we disregard $I(x',x'')$ we are left with $\rho(x,x',x'')$ which is much easier to reason about. While not all BRDFs can be solved analytically \cite{Montes2012} they are usually designed to be sampled with a given probability distribution, which gives us the approximation $p$ we were looking for. 
 
-To keep the expected value of the Monte Carlo integration the same we need to account for the fact that we are no longer sampling $f$ uniformly. This is done by simply dividing the sampled value by the probability of choosing that value since
 
-\begin{equation}
-E[\frac{1}{N} \sum_{i=1}^{N} f(X_i)], X \sim U = E[\frac{1}{N} \sum_{i=1}^{N} \frac{f(X_i)}{p(X_i)}], X \sim p \text{\footnote{TODO: I know this is not quite right, I need to find the proper equalitiy for expected values of different distributions.}}
-\end{equation}
+The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using the distribution in Figure \ref{fig:cosine-dist} we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. The difference is quite obvious in Figure \ref{fig:rendering-cos-weighted}. Even at just 50 samples per pixels the left image is not particularly noisy, compared to the right image which uses uniform sampling.
+
+To keep the expected value of the Monte Carlo integration the same we need to account for the fact that we are no longer sampling $f$ uniformly. This is done by adjusting the probability distribution $p$ in Equation \eqref{eq:monte-carlo-prob}.
 
 There is a lot of value in finding a good approximation to a BRDF since sampling even relatively complex approximations is very cheap compared intersection tests. Better importance sampling directly correlates with less variance and thus reduces the number of needed path samples per pixel dramatically.
 
@@ -248,16 +244,15 @@ There is a lot of value in finding a good approximation to a BRDF since sampling
 	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
 	\addplot+[dashed, polar comb,domain=75:115, samples=4,black,opacity=0.75,mark=x]
 	    {cos(x-90)*(sin(2*x)*cos(2*x) + cos(0.3*x + 1) - sin(30*x)*0.05 + cos(100*x)*0.02 )/1.75 };
-    \legend{$f$, $g$}
+    \legend{$f$, $p$}
 	\end{polaraxis}
   \end{tikzpicture}\par
   \end{centering}
-  \caption{Sampling a distribution $g$ which only accounts for Lambert's cosine law}
+  \caption{Sampling a distribution $p$ which only accounts for Lambert's cosine law}
   \label{fig:cosine-dist}
 \end{figure}
 
 \begin{figure}[htb!]
-
   \centering
   \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/50_spp_cosine_weighted.png}
   \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/50_spp_uniform.png}
@@ -299,6 +294,31 @@ f_t(C_{t}(p)) = \alpha s_t(p) + (1-\alpha)(f_{t-1}(C_{t}(p) + M_t(p)))
 \end{labeling}
 
 The smoothing factor $\alpha$ presents a trade off between responsiveness (high $\alpha$) and variance reduction (low $\alpha$). It can either be set statically or be determined dynamically by some heuristic. A rejected history sample corresponds to $\alpha = 1$. 
+
+
+\section{Acceleration Structures} \label{acceleration}
+Intersection tests are by far the most expensive part of any ray tracing algorithm. \cite[7]{Whitted:1980} This is true even for simple scenes, but becomes a major performance issue in large scenes. Ideally we would like the performance of a ray tracer to be independent from scene complexity, but this is no possible when using a classical polygon based scene representation.
+Rasterization renderers usually perform a culling operation to exclude objects which are not in view of the camera from being rendered. Unfortunately that is not helpful for path tracing since secondary rays can require intersection tests with off-screen objects.
+The naive implementation of a ray cast performs an intersection test with every primitive in the scene. Hence it scales linearly with the number of primitives. Acceleration structures which partition either objects or space allow us to do better. They generally reduce the time complexity of a ray cast from $O(n)$ to $O(\log n)$ in the number of primitives. In the following I will discuss various commonly used acceleration structures. The main trade off is usually construction time versus ray tracing performance. Generally, structures which offer better ray tracing performance take longer to set up and are mostly suited for static scenes, while structures which trade in some ray tracing performance for shorter set up times are better suited for real time applications and dynamic scenes. \cite{Karras:2012:MPC:2383795.2383801}
+
+\subsection{BSP and KD-Trees}
+The first class of acceleration structures are space partitioning trees. They split the scene into smaller and smaller sub-spaces which are wholly contained in their parent space. It is also recorded which objects belong to which sub-space. Once the tree is constructed a ray-scene intersection algorithm can start at the root node and only traverse into sub trees if the ray intersects with their parent node. Actual ray-primitive intersection tests are only necessary once a leaf node is reached. If the tree is well constructed this reduces the number of intersection tests dramatically.
+BSP Trees split space recursively along splitting planes. In the general BSP tree the orientation of the splitting plane can be chosen freely. KD-trees are a subclass of BSP trees where the splitting planes are axis aligned. This makes kd-trees substantially easier to construct since there are less degrees of freedom for the splitting planes. The drawback is that there are situations where a BSP tree might be faster to traverse than a kd-tree.
+Algorithms which construct an optimal kd-tree are NP complete. [TODO:FIND REFERENCE] In practice heuristics are used, the most successful one being the surface area heuristic. \cite{MacDonald1990}
+
+\begin{figure}[htb!]
+  \centering
+  \input{figures/BSP_trees.tex}
+  \caption{A scene which can be split using a BSP tree, but not a kd-tree.}
+  \label{fig:bsp-trees}
+\end{figure}
+
+Efficient traversal is achieved by always traversing the child node which lies closer to the ray origin first.
+
+\subsection{Bounding Volume Hierarchies}
+On a first glance BVHs look very similar to BSP trees. The difference is that BVHs group objects together while BSP trees split space recursively. A common choice for bounding volumes are spheres and axis aligned bounding boxes because they are cheap to construct, require little additional memory and their ray intersection tests are fast. More complex bounding volumes like object oriented bounding boxes, discrete oriented polytopes or convex hulls are attractive because they can provide a tighter fit, but this is usually far outweighed by the added complexity and storage requirements.
+Again, algorithms which find optimal BVHs are NP complete and heuristics have to be used.
+
 
 \section{Hierarchical data structures on the GPU} \label{gpu-adapting}
 The naive path tracing algorithm is easily adapted to the GPU. The massively parallel architecture maps nicely to computing many independent path samples. In my implementation I start one compute shader thread for each pixel in the output image. The main issue with porting ray tracing algorithms in general is that acceleration structure form trees, which don't map nicely to the linear, pointer restricted memory model of a GPU. Especially building such data structure on the GPU is difficult, since parallelizing the classical construction algorithms is often non-trivial if not impossible. \cite[1]{Karras:2012:MPC:2383795.2383801}
