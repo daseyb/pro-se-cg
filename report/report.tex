@@ -172,16 +172,10 @@ In his thesis Eric Veach presents a number of ways to reduce variance in Monte C
 The idea of importance sampling is to concentrate our efforts on parts of the integral in Equation \eqref{eq:rendering-equation} which have a large value. That is, we would rather sample paths which contribute a lot to the image than paths which barely do. To achieve this we choose a function $p$ that is as similar as possible to the function $f$ we want to evaluate and which can be sampled efficiently. A common technique is to approximate or disregard factors in f until we arrive at a function which can be integrated analytically. The mathematical reasoning for why a $p$ with $f(x) \propto p(x)$ would be ideal is given in Equation \eqref{variance}.
 
 \begin{equation}\label{variance}
-\begin{split}
-V(\frac{f(x)}{p(x)}) & = E((\frac{f(x)}{p(x)})^2) - E(\frac{f(x)}{p(x)})^2 \\ & \approx \frac{1}{N}\sum_{i=1}^{N}{(\frac{f(X_i)}{p(X_i)})^2} - (\frac{1}{N}\sum_{i=1}^{N}{\frac{f(X_i)}{p(X_i)}})^2 
- = \frac{1}{N}\sum_{i=1}^{N}{(\frac{f(X_i)}{p(X_i)})^2} - \frac{1}{N^2}(\sum_{i=1}^{N}{\frac{f(X_i)}{p(X_i)}})^2 \\
-& \underset{\mathrm{f(x) \propto p(x)}}{=} \frac{1}{N}\sum_{i=1}^{N}{c^2} - \frac{1}{N^2}(\sum_{i=1}^{N}{c})^2
- = \frac{1}{N}N{c^2} - \frac{1}{N^2}(N{c})^2
- = c^2 - c^2 = 0 
-\end{split}
+V(\frac{f(x)}{p(x)}) \underset{\mathrm{f(x) \propto p(x)}}{=} V(c) = 0 
 \end{equation}
 
-As such, if $f$ is proportional to $p$ the variance of the resulting Monte Carlo integrator is $0$. It is easy to show that this is a continuous relation, i.e. the closer $f$ and $p$ get to being proportional, the lower the variance.
+As such, if $f$ is proportional to $p$ the variance of the resulting Monte Carlo integrator is $0$. It is easy to show that this is a continuous relation, i.e. the closer $f$ and $p$ get to being proportional, the lower the variance. Figure \ref{fig:importance-sampling} illustrates this visually.
 
 \begin{figure}[htb!]
   \begin{centering}
@@ -216,7 +210,7 @@ As such, if $f$ is proportional to $p$ the variance of the resulting Monte Carlo
 In the case of path tracing $f = \rho(x,x',x'')I(x',x'')$ where $\rho$ is a BRDF. The factor of $f$ that makes it especially hard to integrate analytically or approximate is $I(x',x'')$ since $I$ is defined recursively (see Equation \eqref{eq:rendering-equation}). If we disregard $I(x',x'')$ we are left with $\rho(x,x',x'')$ which is much easier to reason about. While not all BRDFs can be solved analytically \cite{Montes2012} they are usually designed to be sampled with a given probability distribution, which gives us the approximation $p$ we were looking for. 
 
 
-The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using an appropriate distribution for our outgoing directions we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. The difference is quite obvious in Figure \ref{fig:rendering-cos-weighted}. Even at just 50 samples per pixels the left image is not particularly noisy, compared to the right image which uses uniform sampling.
+The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using an appropriate distribution for our outgoing directions we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. The difference is quite obvious in Figure \ref{fig:rendering-cos-weighted}. Even at just 50 samples per pixels the left image is a lot less noisy, compared to the right image which uses uniform sampling.
 
 \begin{figure}[htb!]
   \centering
