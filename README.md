@@ -4,3 +4,5 @@ These are the files for my Pro-Seminar report about Efficient Ray Tracing Techni
 This is what I'm currently able to render:
 
 [Video](https://vt.tumblr.com/tumblr_oa26fhhBcc1vsm8k9.mp4)
+
+I held a talk about it as part of the course and you can view the slides here: https://www.dropbox.com/s/opr9dij2tdqnet0/Dario%20Seyb%20-%20Efficient%20Ray%20Tracing%20Techniques.pptx?dl=0
