@@ -21,7 +21,7 @@ const int MAX_TEXTURES = 8;
 uniform sampler2D materialTextures[MAX_TEXTURES];
 
 const int uMaxBounces = 5;
-const int uSampleCount = 1;
+const int uSampleCount = 4;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 

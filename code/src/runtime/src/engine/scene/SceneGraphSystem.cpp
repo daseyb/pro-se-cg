@@ -17,12 +17,13 @@ bool SceneGraphSystem::startup() {
   m_events->subscribe<"EndFrame"_sh>([this]() { endFrame(); });
   m_events->subscribe<"StartSimulate"_sh>([this]() { startSimulate(); });
   m_events->subscribe<"DrawUI"_sh>([this]() {
-
       ImGui::Begin("Entities");
       auto allEntities = m_entityManager.entities_for_debugging();
       for (auto& entity : allEntities) {
-          if (ImGui::TreeNode((std::string("Id: ") + std::to_string(entity.id().index())).c_str())) {
+          std::string entityName = std::string("Id: ") + std::to_string(entity.id().index());
+          if (ImGui::TreeNode(entityName.c_str())) {
               auto component_mask = entity.component_mask();
+
               ImGui::LabelText("Components", "%d", component_mask.count());
               if (entity.has_component<Camera>() && ImGui::TreeNode("Camera")) {
                   auto camera = entity.component<Camera>();
@@ -52,27 +53,19 @@ bool SceneGraphSystem::startup() {
                   ImGui::Checkbox("Visible", &drawable->visible);
                   ImGui::Separator();
                   ImGui::ColorEdit3("Diffuse Color", (float*)&drawable->material.diffuseColor);
-                  if (drawable->material.diffuseTexture) {
-                      ImGui::ImageButton((ImTextureID)drawable->material.diffuseTexture->getObjectName(), glm::vec2(100, 100));
-                  }
+                  m_renderer->showTextureChooser(drawable->material.diffuseTexture, entityName + std::string("diff"));
 
                   ImGui::ColorEdit3("Specular Color", (float*)&drawable->material.specularColor);
-                  if (drawable->material.specularTexture) {
-                      ImGui::ImageButton((ImTextureID)drawable->material.specularTexture->getObjectName(), glm::vec2(100, 100));
-                  }
+                  m_renderer->showTextureChooser(drawable->material.specularTexture, entityName + std::string("spec"));
 
                   ImGui::ColorEdit3("Emissive Color", (float*)&drawable->material.emissiveColor);
-                  if (drawable->material.emissiveTexture) {
-                      ImGui::ImageButton((ImTextureID)drawable->material.emissiveTexture->getObjectName(), glm::vec2(100, 100));
-                  }
+                  m_renderer->showTextureChooser(drawable->material.emissiveTexture, entityName + std::string("emmi"));
 
                   ImGui::SliderFloat("IOR", (float*)&drawable->material.eta, 1.0f, 6.0f);
                   ImGui::SliderFloat("Refractiveness", (float*)&drawable->material.refractiveness, 0.0f, 1.0f);
                   ImGui::SliderFloat("Roughness", (float*)&drawable->material.roughness, 0.0f, 1.0f);
 
-                  if (drawable->material.normalsTexture) {
-                      ImGui::ImageButton((ImTextureID)drawable->material.normalsTexture->getObjectName(), glm::vec2(100, 100));
-                  }
+                  m_renderer->showTextureChooser(drawable->material.normalsTexture, entityName + std::string("norm"));
 
                   ImGui::TreePop();
               }
@@ -89,6 +82,7 @@ bool SceneGraphSystem::startup() {
               ImGui::TreePop();
           }
       }
+
       ImGui::End();
   }, -1);
   return true;

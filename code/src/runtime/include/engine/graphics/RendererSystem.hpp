@@ -71,6 +71,9 @@ private:
 
   std::vector<ScreenSpaceTexture> m_screenSpaceTextures;
 
+  std::vector<SharedTexture2D> m_registeredTextures;
+
+
   SharedTexture2D m_normalMotionBuffer;
   SharedTexture2D m_depthBuffer;
   
@@ -116,6 +119,10 @@ public:
     m_passIds[name] = m_passes.size();
     m_passes.push_back({kilobytes(4), kilobytes(4), kilobytes(4), target, txaa, depth,
                         cam, true, false, false});
+  }
+
+  void registerTexture(glow::SharedTexture2D tex) {
+      m_registeredTextures.push_back(tex);
   }
 
   void setRenderPassSSAO(StringHash pass, bool active) {
@@ -211,6 +218,8 @@ public:
   }
 
   void frame(double interp, double totalTime);
+
+  void showTextureChooser(glow::SharedTexture2D& tex, std::string id);
 };
 
 glm::mat4 interpolate(TransformData a, TransformData b, double t);

@@ -153,6 +153,49 @@ bool RendererSystem::startup() {
 }
 
 
+void RendererSystem::showTextureChooser(glow::SharedTexture2D& tex, std::string id) {
+    const std::string butStr = std::string("Button") + id;
+    const char* butId = butStr.c_str();
+    ImGui::PushID(butId);
+
+    if (tex) {
+        if (ImGui::ImageButton((ImTextureID)tex->getObjectName(), glm::vec2(100, 100))) {
+            ImGui::OpenPopup("Textures");
+        }
+    } else {
+        if (ImGui::Button("Choose Texture")) {
+            ImGui::OpenPopup("Textures");
+        }
+    }
+
+
+    bool isOpen = true;
+    isOpen = true;
+    if (ImGui::BeginPopupModal("Textures", &isOpen)) {
+        if (ImGui::Button("None")) {
+            tex = nullptr;
+            ImGui::CloseCurrentPopup();
+        }
+
+        int index = 1;
+
+        for (auto& regTex : m_registeredTextures) {
+            if (ImGui::ImageButton((ImTextureID)regTex->getObjectName(), glm::vec2(100, 100))) {
+                tex = regTex;
+                ImGui::CloseCurrentPopup();
+            }
+            if (index % 4 != 0) {
+                ImGui::SameLine();
+            }
+
+            index++;
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+}
+
 
 void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   auto camEntity = pass.camera;
