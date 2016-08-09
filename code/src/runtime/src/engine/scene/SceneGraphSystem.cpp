@@ -76,6 +76,16 @@ bool SceneGraphSystem::startup() {
 
                   ImGui::TreePop();
               }
+
+              if (entity.has_component<Light>() && ImGui::TreeNode("Light")) {
+                  auto light = entity.component<Light>();
+
+                  ImGui::ColorEdit4("Color", (float*)&light->color);
+                  ImGui::InputFloat("Size", (float*)&light->size);
+
+                  ImGui::TreePop();
+              }
+
               ImGui::TreePop();
           }
       }
