@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  //renderer.addEffect<BloomPostFX>();
+  // renderer.addEffect<BloomPostFX>();
 
   window.setWindowTitle("Orion");
 
@@ -283,9 +283,6 @@ int main(int argc, char *argv[]) {
     light01->color.a = midi.controlValue(4) * 150;
     light02->color.a = midi.controlValue(5) * 150;
     light03->color.a = midi.controlValue(6) * 150;
-
-    cam->focalDistance = midi.controlValue(2) * 100;
-    cam->lensRadius = midi.controlValue(3) * 1;
 
     float* spectrumData;
     unsigned int length;

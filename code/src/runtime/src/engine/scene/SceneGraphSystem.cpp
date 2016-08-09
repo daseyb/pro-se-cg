@@ -3,6 +3,10 @@
 #include <engine/scene/Drawable.hpp>
 #include <engine/scene/Transform.hpp>
 #include <glm/ext.hpp>
+#include <engine/ui/UISystem.hpp>
+
+#undef near
+#undef far
 
 bool SceneGraphSystem::startup() {
   RESOLVE_DEPENDENCY(m_events);
@@ -12,6 +16,71 @@ bool SceneGraphSystem::startup() {
       [this](const PrepareDrawEvent &e) { prepareDraw(e.interp); });
   m_events->subscribe<"EndFrame"_sh>([this]() { endFrame(); });
   m_events->subscribe<"StartSimulate"_sh>([this]() { startSimulate(); });
+  m_events->subscribe<"DrawUI"_sh>([this]() {
+
+      ImGui::Begin("Entities");
+      auto allEntities = m_entityManager.entities_for_debugging();
+      for (auto& entity : allEntities) {
+          if (ImGui::TreeNode((std::string("Id: ") + std::to_string(entity.id().index())).c_str())) {
+              auto component_mask = entity.component_mask();
+              ImGui::LabelText("Components", "%d", component_mask.count());
+              if (entity.has_component<Camera>() && ImGui::TreeNode("Camera")) {
+                  auto camera = entity.component<Camera>();
+                  ImGui::InputFloat("Near", &camera->near);
+                  ImGui::InputFloat("Far", &camera->far);
+                  ImGui::InputFloat("Focal Distance", &camera->focalDistance);
+                  ImGui::InputFloat("Lens Radius", &camera->lensRadius);
+                  ImGui::SliderFloat("FoV", &camera->fov, 40, 150);
+                  ImGui::TreePop();
+              }
+
+              if (entity.has_component<Transform>() && ImGui::TreeNode("Transform")) {
+                  auto transform = entity.component<Transform>();
+                  ImGui::InputFloat3("Position", (float*)&transform->position);
+                  ImGui::InputFloat3("Scale", (float*)&transform->scale);
+
+                  glm::vec3 rotation;
+                  glm::extractEulerAngleXYZ(transform->rotation, rotation.x, rotation.y, rotation.z);
+                  ImGui::InputFloat3("Rotation", (float*)&rotation);
+                  transform->rotation = glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
+                  ImGui::TreePop();
+              }
+
+              if (entity.has_component<Drawable>() && ImGui::TreeNode("Drawable")) {
+                  auto drawable = entity.component<Drawable>();
+
+                  ImGui::Checkbox("Visible", &drawable->visible);
+                  ImGui::Separator();
+                  ImGui::ColorEdit3("Diffuse Color", (float*)&drawable->material.diffuseColor);
+                  if (drawable->material.diffuseTexture) {
+                      ImGui::ImageButton((ImTextureID)drawable->material.diffuseTexture->getObjectName(), glm::vec2(100, 100));
+                  }
+
+                  ImGui::ColorEdit3("Specular Color", (float*)&drawable->material.specularColor);
+                  if (drawable->material.specularTexture) {
+                      ImGui::ImageButton((ImTextureID)drawable->material.specularTexture->getObjectName(), glm::vec2(100, 100));
+                  }
+
+                  ImGui::ColorEdit3("Emissive Color", (float*)&drawable->material.emissiveColor);
+                  if (drawable->material.emissiveTexture) {
+                      ImGui::ImageButton((ImTextureID)drawable->material.emissiveTexture->getObjectName(), glm::vec2(100, 100));
+                  }
+
+                  ImGui::SliderFloat("IOR", (float*)&drawable->material.eta, 1.0f, 6.0f);
+                  ImGui::SliderFloat("Refractiveness", (float*)&drawable->material.refractiveness, 0.0f, 1.0f);
+                  ImGui::SliderFloat("Roughness", (float*)&drawable->material.roughness, 0.0f, 1.0f);
+
+                  if (drawable->material.normalsTexture) {
+                      ImGui::ImageButton((ImTextureID)drawable->material.normalsTexture->getObjectName(), glm::vec2(100, 100));
+                  }
+
+                  ImGui::TreePop();
+              }
+              ImGui::TreePop();
+          }
+      }
+      ImGui::End();
+  }, -1);
   return true;
 }
 

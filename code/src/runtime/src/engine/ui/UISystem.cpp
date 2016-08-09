@@ -272,7 +272,7 @@ void UISystem::renderDrawLists(ImDrawData *drawData) {
       if (pcmd->UserCallback) {
         pcmd->UserCallback(cmd_list, pcmd);
       } else {
-        glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)pcmd->TextureId);
+        boundProg.setTexture("Texture", (GLuint)pcmd->TextureId);
         glScissor((int)pcmd->ClipRect.x, (int)(fb_height - pcmd->ClipRect.w), (int)(pcmd->ClipRect.z - pcmd->ClipRect.x), (int)(pcmd->ClipRect.w - pcmd->ClipRect.y));
         glDrawElements(GL_TRIANGLES, (GLsizei)pcmd->ElemCount, sizeof(ImDrawIdx) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, idx_buffer_offset);
       }
