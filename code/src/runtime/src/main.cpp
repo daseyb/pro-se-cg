@@ -104,6 +104,7 @@ int main(int argc, char *argv[]) {
   Geometry coornellBoxGeom = {
       glow::assimp::Importer().load("data/geometry/CornellBox-Original.obj")};
   Geometry icosphereGeom = {glow::assimp::Importer().load("data/geometry/icosphere.obj")};
+  Geometry sphereGeom = { glow::assimp::Importer().load("data/geometry/sphere.obj") };
 
   Material whiteMat = {
       {0.8f, 0.8f, 0.8f},
@@ -111,7 +112,7 @@ int main(int argc, char *argv[]) {
       {20.0f, 20.0f, 20.0f},
       0.0f,
       {0.0f, 0.0f, 0.0f},
-      0.0,
+      1.0,
       nullptr,
       nullptr,
       vciLogoTex,
@@ -122,11 +123,25 @@ int main(int argc, char *argv[]) {
   teapotCenter.assign<Drawable>(testSceneGeom, whiteMat);
 
   Material emissiveMat = {
-      { 1.0f, 1.0f, 1.0f }, 0.0f,{ 15.0f, 1.0f, 1.0f }, 0.0f,{ 0.0f, 0.0f, 0.0f }, 0.0 };
+      { 1.0f, 1.0f, 1.0f }, 0.0f,{ 15.0f, 1.0f, 1.0f }, 0.0f,{ 0.0f, 0.0f, 0.0f }, 1.0 };
+
+  Material refractiveMat = {
+      { 0.0f, 0.0f, 0.0f },
+      1.0f,
+      { 0.0f, 0.0f, 0.0f },
+      1.0f,
+      { 1.0f, 1.0f, 1.0f },
+      1.5f,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+  };
+  
   Entity icosphereSide = sceneGraph.create();
   auto teapotSideTransform = icosphereSide.assign<Transform>();
   teapotSideTransform->position = {-10, 0, 0};
-  icosphereSide.assign<Drawable>(icosphereGeom, emissiveMat);
+  icosphereSide.assign<Drawable>(sphereGeom, refractiveMat);
 
   Entity icosphere2 = sceneGraph.create();
   auto icosphere2Transform = icosphere2.assign<Transform>();
@@ -154,8 +169,8 @@ int main(int argc, char *argv[]) {
       { 0.0f, 0.0f, 0.0f },
       0.0f,
       { 0.0f, 0.0f, 0.0f },
-      0.0,
-      diffuseTex,
+      1.0,
+      nullptr,
       nullptr,
       nullptr,
       normalTex,
@@ -168,16 +183,6 @@ int main(int argc, char *argv[]) {
   cubeTransform->position = glm::vec3(-5, -1, -5);
   cubeEntity.assign<Drawable>(cubeGeom, cubeMat);
 
-  for (int i = 0; i < 10; i++) {
-      auto barEntity = sceneGraph.create();
-      auto barTransform = barEntity.assign<Transform>();
-      barTransform->position = glm::vec3( 10 - i * 2, 5, 9);
-      
-      barEntities.push_back(barEntity);
-      barTransforms.push_back(barTransform);
-
-      barEntity.assign<Drawable>(cubeGeom, emissiveMat);
-  }
 
   bool keyState[SDL_NUM_SCANCODES] = {};
 

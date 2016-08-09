@@ -20,8 +20,8 @@ uniform uint uSeed;
 const int MAX_TEXTURES = 8;
 uniform sampler2D materialTextures[MAX_TEXTURES];
 
-const int uMaxBounces = 2;
-const int uSampleCount = 4;
+const int uMaxBounces = 5;
+const int uSampleCount = 1;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 
@@ -90,77 +90,6 @@ Ray generateRay(vec2 screenPos, vec2 screenSize, inout uint random) {
 
 // =============================================================================
 // Material
-
-// GGX BRDF, no cos(theta), no div by PI
-float GGX(vec3 N, vec3 V, vec3 L, float roughness, float F0)
-{
-    // see http://www.filmicworlds.com/2014/04/21/optimizing-ggx-shaders-with-dotlh/
-    vec3 H = normalize(V + L);
-
-    float dotLH = max(dot(L, H), 0.0);
-    float dotNH = max(dot(N, H), 0.0);
-    float dotNL = max(dot(N, L), 0.0);
-    float dotNV = max(dot(N, V), 0.0);
-
-    float alpha = roughness * roughness;
-
-    // D (GGX normal distribution)
-    float alphaSqr = alpha * alpha;
-    float denom = dotNH * dotNH * (alphaSqr - 1.0) + 1.0;
-    float D = alphaSqr / (PI * denom * denom);
-    // pi because BRDF
-
-    // F (Fresnel term)
-    float F_a = 1.0;
-    float F_b = pow(1.0 - dotLH, 5); // manually?
-    float F = mix(F_b, F_a, F0);
-
-    // G (remapped hotness, see Unreal Shading)
-    float k = (alpha + 2 * roughness + 1) / 8.0;
-    float G = dotNL / (mix(dotNL, 1, k) * mix(dotNV, 1, k));
-    // '* dotNV' - canceled by normalization
-
-
-    // '/ dotLN' - canceled by lambert NOT
-    // '/ dotNV' - canceled by G
-    return D * F * G / 4.0 / dotNL;
-}
-
-// GGX for Shading, includes cos(theta), no div by PI
-vec3 shadingGGX(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0)
-{
-    // see http://www.filmicworlds.com/2014/04/21/optimizing-ggx-shaders-with-dotlh/
-    vec3 H = normalize(V + L);
-
-    float dotLH = max(dot(L, H), 0.0);
-    float dotNH = max(dot(N, H), 0.0);
-    float dotNL = max(dot(N, L), 0.0);
-    float dotNV = max(dot(N, V), 0.0);
-
-    float alpha = roughness * roughness + 0.0001;
-
-    // D (GGX normal distribution)
-    float alphaSqr = alpha * alpha;
-    float denom = dotNH * dotNH * (alphaSqr - 1.0) + 1.0;
-    float D = alphaSqr / (denom * denom);
-    // NO pi because BRDF -> lighting
-
-    // F (Fresnel term)
-    vec3 F_a = vec3(1.0);
-    vec3 F_b = vec3(pow(1.0 - dotLH, 5)); // manually?
-    vec3 F = mix(F_b, F_a, F0);
-
-    // G (remapped hotness, see Unreal Shading)
-    float k = (alpha + 2 * roughness + 1) / 8.0;
-    float G = dotNL / (mix(dotNL, 1, k) * mix(dotNV, 1, k));
-    // '* dotNV' - canceled by normalization
-
-
-    // '/ dotLN' - canceled by lambert
-    // '/ dotNV' - canceled by G
-    return max(vec3(0.0), min(vec3(10), D * F * G / 4.0));
-}
-
 
 bool intersect(in Ray r, float maxDist, out HitInfo hit) {
   bool didIntersect = false;
@@ -260,6 +189,15 @@ vec3 directIllumination(vec3 pos, vec3 inDir, vec3 N, Material material, inout u
   return max(0.0, dot(L, N)) * lColor * p;
 }
 
+float pow5(float val) {
+  return val * val * val * val * val;
+}
+
+float fresnel_schlick(vec3 H, vec3 norm, float n1) {
+  float r0 = n1 * n1;
+  return r0 + (1-r0)*pow5(1 - dot(H, norm));
+}
+
 // =============================================================================
 // tracing
 vec3 trace(Ray r, inout uint random) {
@@ -275,15 +213,65 @@ vec3 trace(Ray r, inout uint random) {
     
     vec3 norm = sampleNormal(intr);
 
-    vec3 outDir = directionCosTheta(norm, random);
-    float pdf = 1;
-    //vec3 outDir = directionUniform(norm, random);
-    //float pdf = dot(norm, outDir) * 2;
+    vec3 outDir;
 
-    color += sampleEmissiveColor(intr) * weight;
-    weight *= sampleDiffuseColor(intr)  * pdf;
+    vec3 emissiveColor = sampleEmissiveColor(intr);
+    vec3 diffuseColor = sampleDiffuseColor(intr);
+    vec3 specularColor = intr.material.specularColor;
+    vec3 refractionColor = intr.material.specularColor;
+    float ior = intr.material.eta;
+    
+    float inside = sign(dot(r.dir, norm)); // 1 for inside, -1 for outside
+    
+    float n1 = inside < 0 ? 1.0 / ior : ior;
+    float n2 = 1.0 / n1;
+
+    float fresnel = fresnel_schlick(-r.dir, -inside*norm, (n1 - n2)/(n1+n2));
+
+    float rhoS = fresnel;
+    float rhoD = (1.0 - fresnel) * (1.0 - intr.material.refractiveness);
+    float rhoR = (1.0 - fresnel) * intr.material.refractiveness;
+    float rhoE = dot(vec3(1.0/3.0), emissiveColor);
+   
+    float totalrho = rhoS + rhoD + rhoR + rhoE;
+    rhoS /= totalrho;
+    rhoD /= totalrho;
+    rhoR /= totalrho;
+    rhoE /= totalrho;
+    
+    float rand = uniformFloat(0, 1, random);
+    // REFLECT glossy
+    if (rand <= rhoS)
+    {
+      outDir = reflect(r.dir, norm);
+      weight *= specularColor;
+    }
+    // REFLECT diffuse
+    else if (rand <= rhoD + rhoS)
+    {
+      outDir = directionCosTheta(norm, random);
+      weight *= diffuseColor;
+    }
+    // REFRACT
+    else if (rand <= rhoD + rhoS + rhoR)
+    {
+      outDir = refract(r.dir, -inside * norm, n1);
+      if(dot(outDir, outDir) < 0.9f ) {
+        // TOTAL INTERNAL REFLECTION
+        outDir = reflect(r.dir, norm);
+        weight *= specularColor;
+      } else {
+        weight *= refractionColor;
+      }
+    } 
+    else 
+    {
+      color += max(dot(norm, -r.dir), 0.0f) * emissiveColor * weight;
+      break;
+    }
 
     color += directIllumination(intr.pos, r.dir, norm, intr.material, random) * weight;
+
     r.pos = intr.pos;
     r.dir = outDir;
   }

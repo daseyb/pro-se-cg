@@ -72,7 +72,7 @@ bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
 
     // get intersect point of ray with triangle plane
     r = a / b;
-    if (r < 0.0)
+    if (r < 1e-5)
         return false; // ray goes away from triangle.
 
     vec3 I = ray.pos + r * ray.dir;
@@ -94,10 +94,8 @@ bool intersectPrimitive(in Ray ray, in Primitive tri, out HitInfo hit) {
     if (t < 0.0 || (s + t) > 1.0)
         return false;
 
-    if(r <= 1e-5) return false;
-    
     hit.norm = tri.a.norm * (1.0 - s - t) + tri.b.norm * s + tri.c.norm * t;
-    hit.pos = ray.pos + r * ray.dir;
+    hit.pos =  ray.pos + r * ray.dir;
     hit.t = r;
     hit.uv = vec2(tri.a.u, tri.a.v) * (1.0 - s - t) + vec2(tri.b.u, tri.b.v) * s + vec2(tri.c.u, tri.c.v) * t;
     hit.matId = tri.matId;
