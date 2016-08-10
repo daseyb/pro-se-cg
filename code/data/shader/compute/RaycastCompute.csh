@@ -87,6 +87,28 @@ Ray generateRay(vec2 screenPos, vec2 screenSize, inout uint random) {
   return result;
 }
 
+vec3 hemisphereSample(float theta, float phi, vec3 n) {
+  float xs = sin(theta) * cos(phi);
+  float ys = cos(theta);
+  float zs = sin(theta) * sin(phi);
+
+  vec3 y = n;
+  vec3 h = y;
+
+  if (abs(h.x) <= abs(h.y) && abs(h.x) <= abs(h.z)) {
+    h.x = 1.0;
+  } else if (abs(h.y) <= abs(h.x) && abs(h.y) <= abs(h.z)) {
+    h.y = 1.0;
+  } else {
+    h.z = 1.0;
+  }
+
+  vec3 x = normalize(cross(h, y));
+  vec3 z = normalize(cross(x, y));
+
+  return normalize(xs * x + ys * y + zs * z);
+}
+
 // =============================================================================
 // Material
 
@@ -239,28 +261,44 @@ vec3 trace(Ray r, inout uint random) {
     rhoE /= totalrho;
     
     float rand = uniformFloat(0, 1, random);
-    // REFLECT glossy
-    if (rand <= rhoS)
-    {
-      outDir = reflect(r.dir, norm);
-      weight *= specularColor;
-    }
+
     // REFLECT diffuse
-    else if (rand <= rhoD + rhoS)
+    if (rand <= rhoD)
     {
       outDir = directionCosTheta(norm, random);
       weight *= diffuseColor;
     }
-    // REFRACT
-    else if (rand <= rhoD + rhoS + rhoR)
+    // REFLECT glossy or refract
+    else if(rand <= rhoD + rhoS + rhoR) 
     {
-      outDir = refract(r.dir, -inside * norm, n1);
-      if(dot(outDir, outDir) < 0.9f ) {
-        // TOTAL INTERNAL REFLECTION
+      // REFLECT glossy
+      if (rand <= rhoD + rhoS)
+      {
         outDir = reflect(r.dir, norm);
         weight *= specularColor;
-      } else {
-        weight *= refractionColor;
+      }
+      // REFRACT
+      else
+      {
+        outDir = refract(r.dir, -inside * norm, n1);
+        if(dot(outDir, outDir) < 0.9f ) {
+          // TOTAL INTERNAL REFLECTION
+          outDir = reflect(r.dir, norm);
+          weight *= specularColor;
+        } else {
+          weight *= refractionColor;
+        }
+      }
+
+      if(intr.material.roughness != 0.0)
+      {
+        float n = 1.0f / intr.material.roughness;
+
+        float u1 = uniformFloat(0, 1, random), u2 = uniformFloat(0, 1, random);
+        float theta = acos(pow(u1, 1.0 / (n + 1)));
+        float phi = 2.0 * PI * u2;
+
+        outDir = hemisphereSample(theta, phi, outDir);
       }
     } 
     else 
