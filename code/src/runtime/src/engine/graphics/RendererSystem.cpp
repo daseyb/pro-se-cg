@@ -128,7 +128,17 @@ bool RendererSystem::startup() {
   m_blitProgram = Program::createFromFile("Blit");
   m_passBlitProgram = Program::createFromFile("PassBlit");
   m_txaaProg = Program::createFromFile("TXAA");
+  {
+      auto usedProgram = m_txaaProg->use();
+      usedProgram.setUniform("uAlpha", 0.9f);
+  }
+
   m_raycastComputeProgram = Program::createFromFile("compute/RaycastCompute.csh");
+  {
+      auto usedProgram = m_raycastComputeProgram->use();
+      usedProgram.setUniform("uMaxBounces", 4);
+      usedProgram.setUniform("uSampleCount", 1);
+  }
   m_motionVectorProgram = Program::createFromFile("MotionVectors");
   m_sortPrimitiveProgram = Program::createFromFile("compute/SortPrimitive.csh");
 
@@ -148,6 +158,28 @@ bool RendererSystem::startup() {
       tex.texture->bind().resize((int)newSize.x, (int)newSize.y);
     }
   });
+
+  m_events->subscribe<"DrawUI"_sh>([this]() {
+      ImGui::Begin("Render Settings");
+      static int maxBounces = 4;
+      static int sampleCount = 1;
+      static float txaaAlpha = 0.9f;
+      if (ImGui::InputInt("Max Bounces", &maxBounces)) {
+          auto usedProgram = m_raycastComputeProgram->use();
+          usedProgram.setUniform("uMaxBounces", maxBounces);
+      }
+
+      if (ImGui::InputInt("Sample Count", &sampleCount)) {
+          auto usedProgram = m_raycastComputeProgram->use();
+          usedProgram.setUniform("uSampleCount", sampleCount);
+      }
+
+      if (ImGui::SliderFloat("TXAA Alpha", &txaaAlpha, 0, 1)) {
+          auto usedProgram = m_txaaProg->use();
+          usedProgram.setUniform("uAlpha", txaaAlpha);
+      }
+      ImGui::End();
+  }, -1);
 
   return true;
 }

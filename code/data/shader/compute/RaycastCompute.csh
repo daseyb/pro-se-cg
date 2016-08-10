@@ -13,15 +13,14 @@ struct Payload {
 uniform vec2 pixelOffset;
 uniform int primitiveCount;
 uniform int lightCount;
+uniform int uMaxBounces;
+uniform int uSampleCount;
 
 uniform float totalTime;
 uniform uint uSeed;
 
 const int MAX_TEXTURES = 8;
 uniform sampler2D materialTextures[MAX_TEXTURES];
-
-const int uMaxBounces = 5;
-const int uSampleCount = 4;
 
 layout(rgba32f, binding = 0) writeonly uniform image2D backBuffer;
 

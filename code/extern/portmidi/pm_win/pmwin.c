@@ -28,16 +28,18 @@
  */
 static void pm_exit(void) {
     pm_term();
-#ifdef DEBUG
+    // Don't do this, it's super annoying
+    // If I want to see an error, I can run it in a terminal, that doesn't close immediately...
+/*#ifdef DEBUG
 #define STRING_MAX 80
     {
         char line[STRING_MAX];
         printf("Type ENTER...\n");
         /* note, w/o this prompting, client console application can not see one
-           of its errors before closing. */
+           of its errors before closing. 
         fgets(line, STRING_MAX, stdin);
     }
-#endif
+#endif*/
 }
 
 

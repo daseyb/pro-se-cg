@@ -6,6 +6,8 @@ uniform sampler2D uSamplerNormalMotion;
 uniform sampler2D uSamplerDepth;
 uniform sampler2D uSamplerPrevDepth;
 
+uniform float uAlpha;
+
 uniform vec2 uOneOverColorSize;
 uniform vec2 uOneOverMotionSize;
 
@@ -30,7 +32,7 @@ void main()
   vec2 motion =  texture(uSamplerNormalMotion, vTexCoord).zw;
   vec2 prevMotion = texture(uSamplerNormalMotion, vTexCoord - motion).zw;
   
-  float factor = 0.9;
+  float factor = uAlpha;
   
   vec4 current = texture(uSamplerColor, vTexCoord);
     
@@ -48,19 +50,6 @@ void main()
   if(abs(depth-prevDepth) > 0.015) {
       factor = 0;
   }
-  
-  vec4 minNeighbour = current;
-  vec4 maxNeighbour = current;
-  
-  for(int x = -1; x <= 1; x++) {
-    for(int y = -1; y <= 1; y++) {
-      vec4 colorSample = texture(uSamplerColor, vTexCoord + vec2(x, y)*uOneOverColorSize);
-      minNeighbour = min(minNeighbour, colorSample);
-      maxNeighbour = max(maxNeighbour, colorSample);
-    }
-  }
-  
-  //history = clamp(history, minNeighbour, maxNeighbour);
   
   oColor = mix(current, history, factor);
   oColor.a = clamp(oColor.a, 0, 1);
