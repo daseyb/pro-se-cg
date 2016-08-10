@@ -70,23 +70,14 @@ The technique of tracing rays through a scene consisting of primitives and media
 It was first described in relation to computer graphics by Arthur Appel in 1968  \cite{Appel68}. At the time the common method to visualize three dimensional scenes was to synthesize two dimensional line and point drawings. Appel recognized the importance of shading and shadow casting in conveying shape and spatial relations. In his paper "Some techniques for shading machine renderings of solids" he proposes a method to realize this shading by casting rays originating from the viewers' position through each pixel on the viewing plane and calculating the first point of intersection with the scene. To determine shading he casts a second ray from this intersection point to the light source. Appel's technique was very compute intensive for its time, but already illustrated the power of ray tracing to generate realistic images using a relatively simple algorithm.
 
 \begin{figure}[htb!]
-  \begin{centering}
-    \includegraphics[width=12cm,natwidth=1233,natheight=661]{figures/Appel_Shading.png}\par
-  \end{centering}
-  \caption{Left: Unshaded Line/Point Drawing, Right: Drawing augmented with the technique introduced in \cite{Appel68}}
-  \label{fig:appel_tracing}
+  \centering
+  \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/bounces_one.png}
+  \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/bounces_many.png}
+  \caption{Left: Direct lighting only, Right: Full global illumination}
+  \label{fig:rendering-bounces}
 \end{figure}
 
-The next major contribution to ray tracing came from Turner Whitted of Bell Laboratories in 1980. In his landmark paper "An Improved Illumination Model for Shaded Display" \cite{Whitted:1980} he described the algorithm that would become known as Recursive, or Whitted, Ray Tracing. Previously ray tracing was only used to compute local illumination at the first point of intersection and the only secondary rays that were cast were shadow rays. This produced a fairly good approximation for diffuse surfaces, but was lacking in scenes with very reflective objects. Whitted took the concept of casting secondary rays and extended it to reflections and refractions. For each intersection point he proposed to not only compute a shadow ray in the direction of each light source, but also recursively compute the color of incoming reflected and refracted light. This technique produced impressive looking results, but Whitted himself acknowledged that it did not provide a solution to global illumination since objects could not act as light sources themselves and diffuse interreflections were not accounted for.
-
-\begin{figure}[htb!]
-  \begin{centering}
-    \includegraphics[width=12cm,natwidth=1280,natheight=720]{figures/whitted_raytracing.png}\par
-  \end{centering}
-  \caption{Whitted Ray Tracing implemented in the offline renderer "Zaphod" \cite{Zaphod}.}
-  \label{fig:whitted-example}
-\end{figure}
-
+The next major contribution to ray tracing came from Turner Whitted of Bell Laboratories in 1980. In his landmark paper "An Improved Illumination Model for Shaded Display" \cite{Whitted:1980} he described the algorithm that would become known as Recursive, or Whitted, Ray Tracing. Previously ray tracing was only used to compute local illumination at the first point of intersection and the only secondary rays that were cast were shadow rays. This produced a fairly good approximation for diffuse surfaces, but was lacking in scenes with very reflective objects. Whitted took the concept of casting secondary rays and extended it to reflections and refractions. For each intersection point he proposed to not only compute a shadow ray in the direction of each light source, but also recursively compute the color of incoming reflected and refracted light. This technique produced impressive looking results, but Whitted himself acknowledged that it did not provide a solution to global illumination since objects could not act as light sources themselves and diffuse interreflections were not accounted for. Figure \ref{fig:rendering-bounces} shows the difference between direct illumination only and global illumination. It highlights why I chose to implement a solution which provides full global illumination. The indirect light is very importance for the realistic appearance of a scene and something that can not by solved easily with rasterization approaches.
 
 Over the following years many different approaches to solve this issue were proposed and in 1986 James T. Kajiya published a paper titled "The Rendering Equation"  \cite{Kajiya:1986} in which he presents an equation to describe the propagation of light in a scene. It is general enough to describe all optical phenomena we care about in computer graphics and this made it possible to classify rendering algorithms by how well they approximate a solution to the rendering equation Eq. \eqref{eq:rendering-equation}.
 
@@ -99,6 +90,7 @@ I(x,x')= \overbrace{g(x,x')}^{\mathclap{\text{Geometry Term}}}
                   \overbrace{I(x',x'') }^{\mathclap{\text{Incoming light}}} dx''}
          }_{\mathclap{\text{Light reflected at $x'$ in direction $\overrightarrow{x'x}$}}} ]
 \end{equation}
+
 It describes the light transport between two points $x$ and $x'$ as a combination of emitted and reflected light at $x'$. The geometry term describes the amount of light that actually arrives at $x$ (e.g. $g(x,x') = 0$ if there is an object between the two points). To compute the reflected light we need to integrate over all directions in the hemisphere $S$ above point $x'$. 
 The main difference between rendering algorithms is how they approach the evaluation of this integral. It cannot be evaluated analytically for scenes which are even remotely interesting, but the formulation of the rendering problem as an integral equation allows us to employ methods from calculus to devise new algorithms.
 
@@ -130,41 +122,26 @@ In Figure \ref{path-tracing} an example of such a randomly generated path is sho
 
 In classical path tracing paths start at a point on the image plane. A first intersection point in the scene is calculated. At this point a scattering event is simulated. This is done by randomly choosing a new direction with a distribution which depends on the material of the hit object. The next intersection is calculated based on the chosen direction.
 
-\begin{figure}[htb!]
-  \begin{centering}
-    \tdplotsetmaincoords{0}{0}
-    \begin{tikzpicture}[tdplot_main_coords]
-      \draw[thick,-] (-4,0) -- (4,0) node[anchor=north east]{Surface};
-      \draw[thick,->] (0,0) -- (0,2.5) node[anchor=north west]{$\vec{n}$};
-      \draw[thick,<-] (0,0) -- (-3.5,3.0)
-                      node[anchor=south east]{$\overrightarrow{x_{i-1}x_i}$};
-      \tdplotdefinepoints(0,0,0)(0,2,0)(-3.5,3.0,0);
-      \tdplotdrawpolytopearc[thin,<->]{1.25}{anchor=south}{$\omega_0$};
-      \draw[thick,dashed,->] (0,0) -- (3.5,1.5)
-                             node[anchor=south west]{$\overrightarrow{x_ix_{i+1}}$};
-      \tdplotdefinepoints(0,0,0)(0,2,0)(3.5,1.5,0);
-      \tdplotdrawpolytopearc[thin,<->]{1.5}{anchor=south}{$\omega_1$};
-      \draw[thin, densely dotted, <-] (0,0) -- (1, 0) arc (0:180:1cm) -- cycle;
-      \draw (1,0) node[below]{$S$};
-      \draw (0,0) node[below]{$x_i$};
-    \end{tikzpicture}\par
-  \end{centering}
-  \caption{Geometry of a single scattering event.}
-  \label{fig:scattering-event}
-\end{figure}
-
-Figure \ref{fig:scattering-event} shows the geometry involved in a single scattering event. An incoming ray $\overrightarrow{x_{i-1}x_i}$ is scattered at point $x_i$ on some object in the scene. The new direction $\overrightarrow{x_ix_{i+1}}$ is chosen randomly and the contribution of light coming in along $\overrightarrow{x_ix_{i+1}}$ is based on the material properties of the surface. These material properties are most commonly described in the form of a Bidirectional Reflectance Distribution Function (BRDF). There are many classes of BRDFs to describe the many different ways light interacts with surfaces, but describing them in detail is outside of the scope of this report.
-
-A path is terminated when (1) it reaches a light source (2) the maximum path length is reached (3) no intersection is found.
+A path is terminated when it reaches a light source, the maximum path length is reached or no intersection is found.
 The reason why paths start at the camera is that a path which starts at some point on the surface of a light source is very unlikely to hit the image plane and thus likely to not contribute the the image. More sophisticated methods like Bidirectional Path Tracing start rays at both ends and try to connect them. They produce better results, but are harder to implement, especially on GPGPUs.
 
 \section{Reducing Noise} \label{noise}
-For classical path tracing to converge to a stable solution we need to sample thousands of paths for each pixel. Since sampling a path requires intersection tests which are already the bottleneck of the pipeline this is not something we can afford under the constraints of real time rendering. The lack of samples results in a high variance between pixels which is expressed as noise. While uniform noise is one of the more pleasant artefacts in computer graphics it still impacts the perceived quality of rendered images. [TODO: FIND STUDY]
+For classical path tracing to converge to a stable solution we need to sample thousands of paths for each pixel. Since sampling a path requires intersection tests which are already the bottleneck of the pipeline (see Section \ref{acceleration}) this is not something we can afford under the constraints of real time rendering. The lack of samples results in a high variance between pixels which is expressed as noise. As described in \cite{PhysRevLett.78.1186} uniform noise is one of the more pleasant artifacts to human vision, but it still impacts the perceived quality of rendered images.
 In the following I will describe two approaches to reduce variance and improve image quality without sampling more paths.
 \begin{itemize}
 \item \textbf{Reducing the variance} of the sampled paths by carefully choosing the sampled distribution in our Monte Carlo integrator.
 \item \textbf{Reusing samples} from previous frames and thus reducing variance by having a larger number of samples for each pixel.
 \end{itemize}
+
+Figure \ref{fig:rendering-before-after} shows what we can achieve with the noise reduction techniques presented in this report. It should serve as a motivation for why noise reduction is instrumental in achieving acceptable images in real time path tracing.
+
+\begin{figure}[htb!]
+  \centering
+  \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/render_uniform.png}
+  \includegraphics[width=5cm,natwidth=512,natheight=512]{figures/render_importancesample_txaa.png}
+  \caption{Left: No noise reduction, Right: Importance sampling and temporal supersampling}
+  \label{fig:rendering-before-after}
+\end{figure}
 
 \subsection{Importance Sampling}
 In his thesis Eric Veach presents a number of ways to reduce variance in Monte Carlo algorithms. \cite[45--70]{veach1997robust} I will focus on importance sampling \cite[47--48]{veach1997robust}, because it is easy to integrate into existing algorithms. Other techniques such as Bidirectional Path Tracing or Metropolis Light Transport produce better results, but are more complicated to implement correctly, especially on the GPU.
@@ -207,10 +184,10 @@ As such, if $f$ is proportional to $p$ the variance of the resulting Monte Carlo
 \end{figure}
 \footnotetext{$f$ and $p$ are chosen for illustration purposes only and are not supposed to represent an actual BRDF.}
 
-In the case of path tracing $f = \rho(x,x',x'')I(x',x'')$ where $\rho$ is a BRDF. The factor of $f$ that makes it especially hard to integrate analytically or approximate is $I(x',x'')$ since $I$ is defined recursively (see Equation \eqref{eq:rendering-equation}). If we disregard $I(x',x'')$ we are left with $\rho(x,x',x'')$ which is much easier to reason about. While not all BRDFs can be solved analytically \cite{Montes2012} they are usually designed to be sampled with a given probability distribution, which gives us the approximation $p$ we were looking for. 
+In the case of path tracing $f = \rho(x,x',x'')I(x',x'')$ where $\rho$ is a BRDF. The factor of $f$ that makes it especially hard to integrate analytically or approximate is $I(x',x'')$ since $I$ is defined recursively (see Equation \eqref{eq:rendering-equation}). If we disregard $I(x',x'')$ we are left with $\rho(x,x',x'')$ which is much easier to reason about. While not all BRDFs can be solved analytically (as noted in \cite{Montes2012}) they are usually designed to be sampled with a given probability distribution, which gives us the approximation $p$ we were looking for. 
 
 
-The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using an appropriate distribution for our outgoing directions we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. The difference is quite obvious in Figure \ref{fig:rendering-cos-weighted}. Even at just 50 samples per pixels the left image is a lot less noisy, compared to the right image which uses uniform sampling.
+The most basic example of importance sampling is using the fact that all BRDFs must account for Lambert's cosine law. Just by using an appropriate distribution for our outgoing directions we can reduce the variance dramatically since we avoid sampling rays which are almost parallel to the surface and thus don't contribute much to its illumination. The difference is quite subtle in Figure \ref{fig:rendering-cos-weighted}. But even at just 50 samples per pixels the left image is a lot less noisy, compared to the right image which uses uniform sampling.
 
 \begin{figure}[htb!]
   \centering
@@ -245,7 +222,7 @@ With that information we can compute the previous clip space location of $p$ as 
 This allows temporal supersampling to be implemented as a post processing step.
 
 \subsubsection{Rejection}
-The assumption we made during reprojection breaks down in two cases: The previous clip space position is off screen (which means $p$ was not visible in the last frame because it was outside the camera frustum) or the depth stored in the history buffer does not match the computed depth (which means $p$ was occluded by some other surface). We need to detect these cases and reject the samples. There are also other, color based, rejection strategies like neighbourhood clamping [TODO: Ref UE4 talk]. Those do not work well with path tracing since they assume low variance on smooth surfaces which the samples from path tracing don't provide.
+The assumption we made during reprojection breaks down in two cases: The previous clip space position is off screen (which means $p$ was not visible in the last frame because it was outside the camera frustum) or the depth stored in the history buffer does not match the computed depth (which means $p$ was occluded by some other surface). We need to detect these cases and reject the samples. There are also other, color based, rejection strategies like neighborhood clamping \cite{HQTS}. Those do not work well with path tracing since they assume low variance on smooth surfaces which the samples from path tracing don't provide.
 
 \subsubsection{Combination}
 Once we have identified a valid history sample we need to combine it with the new samples from the current frame. A common approach to this is to use a recursive exponential smoothing filter \cite{Yang:2009} 
@@ -253,30 +230,25 @@ Once we have identified a valid history sample we need to combine it with the ne
 \begin{equation}
 f_t(C_{t}(p)) = \alpha s_t(p) + (1-\alpha)(f_{t-1}(C_{t}(p) + M_t(p)))
 \end{equation}
-\begin{labeling}{$f_t$}
-\item [$f_t$] Value of the frame/history buffer in frame t.
-\item [$\alpha$] Smoothing factor.
-\item [$s_t$] New sample value.
-\end{labeling}
 
-The smoothing factor $\alpha$ presents a trade off between responsiveness (high $\alpha$) and variance reduction (low $\alpha$). It can either be set statically or be determined dynamically by some heuristic. A rejected history sample corresponds to $\alpha = 1$. 
+Where $f_t$ is the value of the frame/history buffer in frame t and $s_t$ the new sample value. The smoothing factor $\alpha$ presents a trade off between responsiveness (high $\alpha$) and variance reduction (low $\alpha$). It can either be set statically or be determined dynamically by some heuristic. A rejected history sample corresponds to $\alpha = 1$. 
 
 
 \section{Acceleration Structures} \label{acceleration}
-Intersection tests are by far the most expensive part of any ray tracing algorithm. \cite[7]{Whitted:1980} This is true even for simple scenes, but becomes a major performance issue in large scenes. Ideally we would like the performance of a ray tracer to be independent from scene complexity, but this is no possible when using a classical polygon based scene representation.
+After employing the noise reduction techniques presented in the previous section we are able to render simple scenes in real time to an acceptable level of quality. Unfortunately more complex scenes quickly become to expensive to render. This is because intersection tests are by far the most expensive part of any ray tracing algorithm \cite[7]{Whitted:1980}. While this is true even for simple scenes, but becomes a major performance issue in large scenes. Ideally we would like the performance of a ray tracer to be independent from scene complexity, but this is no possible when using a classical polygon based scene representation.
 Rasterization renderers usually perform a culling operation to exclude objects which are not in view of the camera from being rendered. Unfortunately that is not helpful for path tracing since secondary rays can require intersection tests with off-screen objects.
-The naive implementation of a ray cast performs an intersection test with every primitive in the scene. Hence it scales linearly with the number of primitives. Acceleration structures which partition either objects or space allow us to do better. They generally reduce the time complexity of a ray cast from $O(n)$ to $O(\log n)$ in the number of primitives. In the following I will discuss various commonly used acceleration structures. The main trade off is usually construction time versus ray tracing performance. Generally, structures which offer better ray tracing performance take longer to set up and are mostly suited for static scenes, while structures which trade in some ray tracing performance for shorter set up times are better suited for real time applications and dynamic scenes. \cite{Karras:2012:MPC:2383795.2383801}
+The naive implementation of a ray cast performs an intersection test with every primitive in the scene. Hence it scales linearly with the number of primitives. Acceleration structures which partition either objects or space allow us to do better. They generally reduce the time complexity of a ray cast from $O(n)$ to $O(\log n)$ in the number of primitives. In the following I will discuss various commonly used acceleration structures. The main trade off is usually construction time versus ray tracing performance. Generally, structures which offer better ray tracing performance take longer to set up and are mostly suited for static scenes, while structures which trade in some ray tracing performance for shorter set up times are better suited for real time applications and dynamic scenes \cite{Karras:2012:MPC:2383795.2383801}.
 
-\subsection{BSP and KD-Trees}
-The first class of acceleration structures are space partitioning trees. They split the scene into smaller and smaller sub-spaces which are wholly contained in their parent space. It is also recorded which objects belong to which sub-space. Once the tree is constructed a ray-scene intersection algorithm can start at the root node and only traverse into sub trees if the ray intersects with their parent node. Actual ray-primitive intersection tests are only necessary once a leaf node is reached. If the tree is well constructed this reduces the number of intersection tests dramatically.
+\subsection{Binary Space Partitioning (BSP) and KD-Trees}
+The first class of acceleration structures are space partitioning trees. They split the scene into smaller and smaller sub-spaces which are wholly contained in their parent space. Figure  It is also recorded which objects belong to which sub-space. Once the tree is constructed a ray-scene intersection algorithm can start at the root node and only traverse into sub trees if the ray intersects with their parent node. Actual ray-primitive intersection tests are only necessary once a leaf node is reached. If the tree is well constructed this reduces the number of intersection tests dramatically.
 BSP Trees split space recursively along splitting planes. In the general BSP tree the orientation of the splitting plane can be chosen freely. KD-trees are a subclass of BSP trees where the splitting planes are axis aligned. This makes kd-trees substantially easier to construct since there are less degrees of freedom for the splitting planes. The drawback is that there are situations where a BSP tree might be faster to traverse than a kd-tree.
-Algorithms which construct an optimal kd-tree are NP complete. [TODO:FIND REFERENCE] In practice heuristics are used, the most successful one being the surface area heuristic. \cite{MacDonald1990}
+Algorithms which construct an optimal kd-tree are NP complete. In practice heuristics are used, the most successful one being the surface area heuristic \cite{MacDonald1990}.
 
 \begin{figure}[htb!]
   \centering
-  \input{figures/BSP_trees.tex}
-  \caption{A scene which can be split using a BSP tree, but not a kd-tree.}
-  \label{fig:bsp-trees}
+  \input{figures/kd-tree.tex}
+  \caption{A kd-tree built around three objects.}
+  \label{fig:kd-tree}
 \end{figure}
 
 Efficient traversal is achieved by always traversing the child node which lies closer to the ray origin first.
@@ -285,11 +257,18 @@ Efficient traversal is achieved by always traversing the child node which lies c
 On a first glance BVHs look very similar to BSP trees. The difference is that BVHs group objects together while BSP trees split space recursively. A common choice for bounding volumes are spheres and axis aligned bounding boxes because they are cheap to construct, require little additional memory and their ray intersection tests are fast. More complex bounding volumes like object oriented bounding boxes, discrete oriented polytopes or convex hulls are attractive because they can provide a tighter fit, but this is usually far outweighed by the added complexity and storage requirements.
 Again, algorithms which find optimal BVHs are NP complete and heuristics have to be used.
 
+\begin{figure}[htb!]
+  \centering
+  \input{figures/bvh.tex}
+  \caption{A sphere based BVH built around the same three objects as in Figure \ref{fig:kd-tree}.}
+  \label{fig:bvh}
+\end{figure}
 
 \section{Hierarchical data structures on the GPU} \label{gpu-adapting}
 The naive path tracing algorithm is easily adapted to the GPU. The massively parallel architecture maps nicely to computing many independent path samples. In my implementation I start one compute shader thread for each pixel in the output image. The main issue with porting ray tracing algorithms in general is that acceleration structure form trees, which don't map nicely to the linear, pointer restricted memory model of a GPU. Especially building such data structure on the GPU is difficult, since parallelizing the classical construction algorithms is often non-trivial if not impossible. \cite[1]{Karras:2012:MPC:2383795.2383801}
 \subsection{Construction}
-\citet{Karras:2012:MPC:2383795.2383801} presents a method which aids in the parallel construction of both bounding volume hierarchies as well as space partitioning trees. He constructs an ordered binary radix tree containing a Morton code for each primitive and shows how this construction can be distributed on n-1 threads (where n is the number of primitives). This maps very nicely to GPU architectures since the number of threads is known in advance and the tree construction can be achieved in one compute shader dispatch. One of the possible outputs of this method is a kd-tree with n-1 internal nodes (one node per thread). Unfortunately Karras does not analyse the ray tracing performance of the generated trees.
+\citet{Karras:2012:MPC:2383795.2383801} presents a method which aids in the parallel construction of both bounding volume hierarchies as well as space partitioning trees. He constructs an ordered binary radix tree containing a Morton code for each primitive and shows how this construction can be distributed on n-1 threads (where n is the number of primitives). This maps very nicely to GPU architectures since the number of threads is known in advance and the tree construction can be achieved in one compute shader dispatch. One of the possible outputs of this method is a kd-tree with n-1 internal nodes (one node per thread). Unfortunately Karras does not analyse the ray tracing performance of the generated trees. Figure \ref{fig:tree-construction} shows the steps needed for this algorithm.
+
 \begin{figure}[htb!]
   \centering
   \begin{tikzpicture}
@@ -342,7 +321,7 @@ The sorting step can be done parallelized by using some parallel sorting techniq
 Once we have constructed an acceleration structure we need to find an efficient way to traverse it and find the closest intersection with a ray. For this report I will focus on traversing kd-trees, since "[they are] the best general purpose acceleration structure for CPU raytracers" \cite{Foley:2005} and a kd-tree is one of the outputs of the algorithm described in the previous section.
 The classical traversal algorithm requires a stack to store nodes which still need to be processed. Due to the high number of rays which are processed in parallel on the GPU, a stack per ray is not feasible. This is why stackless traversal algorithms are necessary for efficient GPU ray tracing. One such algorithm is introduced by \citet{popov2007stackless}. They not only describe a technique which can travers any kd-tree without needing a stack, but also propose an efficient memory layout, taking the peculiarities of modern GPUs into consideration. A usual limitation of stackless traversal algorithm is the need to "restart" a traversal when a leaf is reached, since we cannot store which internal nodes to travers next.
 
-\citet{popov2007stackless} get around this by storing additional information, so called "ropes", in each leaf. Ropes are pointers to the spatially adjacent nodes of a leaf. Once a leaf is reached during regular traversal we can move to the next node by following the appropriate rope based on the ray direction. This reduces the time spent on "re-traversing" the tree immensely. They also propose an efficient post-processing algorithm to add ropes to any kd-tree.
+\citet{popov2007stackless} get around this by storing additional information, so called "ropes", in each leaf. Ropes are pointers to the spatially adjacent nodes of a leaf. Once a leaf is reached during regular traversal we can move to the next node by following the appropriate rope based on the ray direction. This reduces the time spent on "re-traversing" the tree immensely. They also propose an efficient post-processing algorithm to add ropes to any kd-tree. Figure \ref{fig:tree-traversal} shows the steps taken when intersecting one ray with the acceleration structure. Note that there is no stack needed thanks to the ropes.
 
 \begin{figure}[htb!]
   \centering
@@ -398,33 +377,20 @@ The classical traversal algorithm requires a stack to store nodes which still ne
 
 
 \section{Results} \label{results}
-To familiarize myself with the techniques I describe in this paper I implemented a real time path tracer using C++ and OpenGL. The source code can be found at https://github.com/bonus2113/pro-se-cg.
+To familiarize myself with the techniques I describe in this paper I implemented a real time path tracer using C++ and OpenGL. The source code can be found at https://github.com/daseyb/pro-se-cg.
 Much of the code is based on the edge-of-space engine \cite{edge_of_space} which was built for the game programming module at RWTH Aachen in WS 15/16.
 The main features are:
 \begin{itemize}
 \item Real time rendering of triangle models using path tracing.
 \item An interactive camera system.
 \item Shader hot reloading for fast iteration times.
-\item TODO: FINISH FEATURE LIST
+\item A flexible material system supporting reflection, transmission and emission.
+\item GPU based acceleration structures as described in this report.
 \end{itemize}
-
-\subsection{Images}
-Pretty images rendered in real time. Link to a video.
-\subsection{Timings}
-Timing comparisons between the different techniques.
-
-\begin{figure}[htb!]
-  \begin{centering}
-    \includegraphics[width=10cm,natwidth=1920,natheight=1080]{figures/Output_PT_10kSPP.png}\par
-  \end{centering}
-  \caption{This is what my path tracer is rendering right now, but not in real time.}
-  \label{fig:pathtraced}
-\end{figure}
-
+Note that all images presented here are created with my own renderes. Zaphod (\cite{Zaphod}) for offline rendering and Orion (\cite{Orion}) for real time rendering. Please consult the respective project pages for more information, since unfortunately a detailed description of my implementation is out of scope for this report.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Bibliography
-
+\section{References}
 \printbibliography
-
 
 \end{document}
