@@ -89,6 +89,7 @@ private:
   SharedProgram m_raycastComputeProgram;
   SharedProgram m_copyPrimitiveProgram;
   SharedProgram m_sortPrimitiveProgram;
+  SharedProgram m_mergePrimitiveProgram;
 
   SharedProgram m_motionVectorProgram;
   SharedProgram m_txaaProg;

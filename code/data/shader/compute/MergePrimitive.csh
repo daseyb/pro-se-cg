@@ -9,7 +9,7 @@ layout(std140, binding = 0) buffer PrimitiveBuffer {
 	Primitive primitives[]; 
 };
 
-void sort(uint start, uint end) {
+void merge(uint start, uint end) {
   for(uint i = start+1; i < end; i++) {
     uint j = i;
     while (j > start && primitives[j-1].sortCode > primitives[j].sortCode) {
@@ -21,12 +21,12 @@ void sort(uint start, uint end) {
   }  
 }
 
-layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
   uint blockSize = primitiveCount/(8*groupCount);
   uint blockIdx = gl_GlobalInvocationID.x;
 
   uint primStart = blockIdx * blockSize;
   uint primEnd = min( (blockIdx + 1) * blockSize, primitiveCount);
-  sort(primStart, primEnd);
+  merge(primStart, primEnd);
 }

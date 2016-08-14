@@ -231,6 +231,7 @@ vec3 trace(Ray r, inout uint random) {
     if (!intersect(r, MAX_DISTANCE, intr)) {
       break;
     }
+
     
     vec3 norm = sampleNormal(intr);
 
@@ -318,11 +319,14 @@ vec3 trace(Ray r, inout uint random) {
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main() {
-  ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
-  uint random = wang_hash(wang_hash(uint(totalTime * 1003 + storePos.x * 7)) + uint(totalTime * 5000 + storePos.y * 15001));
-
   ivec2 imgSize = imageSize(backBuffer);
-  
+  ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
+
+  uint random = wang_hash(wang_hash(uint(totalTime * 1003 + storePos.x * 7)) + uint(totalTime * 5000 + storePos.y * 15001));
+/*
+  uint random = wang_hash(uint((sin(storePos.x-imgSize.x/2) + cos(storePos.y+imgSize.y/2) )*totalTime*0.005)) + uint(totalTime*10+storePos.x+storePos.y);
+  */
+
   if(storePos.x >= imgSize.x || storePos.y >= imgSize.y) return;
   
   Ray r = generateRay(vec2(storePos)/vec2(imgSize), imgSize, random);

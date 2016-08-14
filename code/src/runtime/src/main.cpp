@@ -20,6 +20,7 @@
 #include <engine/core/SimulateEvent.hpp>
 #include <engine/audio/MidiNoteEvent.hpp>
 #include <engine/audio/MidiControlEvent.hpp>
+#include <engine/audio/SoundSource.hpp>
 
 #include <engine/graphics/Light.hpp>
 
@@ -89,6 +90,8 @@ int main(int argc, char *argv[]) {
   camTransform->position = glm::vec3(0, 0, 10);
   renderer.addRenderPass(camera, "Main"_sh);
 
+  audio.setListener(camera);
+
   glow::assimp::Importer().setCalculateTangents(false);
   glow::assimp::Importer().setGenerateSmoothNormal(false);
   glow::assimp::Importer().setGenerateUVCoords(false);
@@ -142,11 +145,15 @@ int main(int argc, char *argv[]) {
       nullptr,
       nullptr,
   };
+
+  auto modTest = audio.createSound("spacedeb.mod", SoundMode::MODE_2D);
   
   Entity icosphereSide = sceneGraph.create();
   auto teapotSideTransform = icosphereSide.assign<Transform>();
   teapotSideTransform->position = {-10, 0, 0};
-  icosphereSide.assign<Drawable>(sphereGeom, refractiveMat);
+  auto sphereDrawable = icosphereSide.assign<Drawable>(sphereGeom, refractiveMat);
+  auto sound = icosphereSide.assign<SoundSource>(modTest);
+  sound->play();
 
   Entity icosphere2 = sceneGraph.create();
   auto icosphere2Transform = icosphere2.assign<Transform>();
@@ -251,6 +258,7 @@ int main(int argc, char *argv[]) {
   float teapotScale = 1.0f;
   float boxScale = 1.0f;
   float teapotPos = 0.0f;
+  std::vector<float> eqData(50);
 
   events.subscribe<SimulateEvent>([&](const SimulateEvent &e) {
     glm::vec3 moveDir{0, 0, 0};
@@ -294,26 +302,32 @@ int main(int argc, char *argv[]) {
 
     audio.getSpectrum(&spectrumData, &length);
 
-    float bucketsPerCube = float(length) / barTransforms.size();
+    float bucketsPerCube = float(length) / eqData.size();
 
     if (length == 0) {
         return;
     }
 
     int currDataPos = 0;
-    for (size_t i = 0; i < barTransforms.size(); i++) {
-        float percentage = sqrt(1.0f- float(i+1) / (barTransforms.size()+1));
-        int bucketCount = (int)(-log(percentage) * bucketsPerCube);
+    for (size_t i = 0; i < eqData.size(); i++) {
+        float percentage = sqrt(1.0f- float(i+1) / (eqData.size()+1));
+        int bucketCount = (int)(-log(percentage) * bucketsPerCube) + 1;
         float subSum = 0; 
         for (size_t j = currDataPos; j < currDataPos + bucketCount; j++) {
-            assert(j < length);
             subSum += spectrumData[j];
         }
         subSum /= bucketCount;
         currDataPos += bucketCount;
 
-        barTransforms[i]->scale.y = subSum * 1000 * 1.0f/log(1.0f - percentage) + 0.1f;
+        eqData[i] = subSum * length;
     }
+
+    auto total = 0.0f;
+    for (auto data : eqData) {
+        total += data;
+    }
+
+    sphereDrawable->material.emissiveColor = glm::vec3(total) * 0.1f;
 
   }); 
 
@@ -325,6 +339,10 @@ int main(int argc, char *argv[]) {
     ImGui::Separator();
     midi.uiFader("Camera Focal Distance", 2, 0);
     midi.uiFader("Camera Lens Radius", 3, 0);
+    ImGui::End();
+
+    ImGui::Begin("Audio");
+    ImGui::PlotHistogram("EQ", eqData.data(), eqData.size(), 0, 0, 0, 10, glm::vec2(400, 100));
     ImGui::End();
   });
 

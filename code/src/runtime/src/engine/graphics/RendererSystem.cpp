@@ -134,6 +134,7 @@ bool RendererSystem::startup() {
   }
 
   m_raycastComputeProgram = Program::createFromFile("compute/RaycastCompute.csh");
+  m_raycastComputeProgram->saveBinaryToFile("raycastCompute.shbin");
   {
       auto usedProgram = m_raycastComputeProgram->use();
       usedProgram.setUniform("uMaxBounces", 4);
@@ -141,8 +142,9 @@ bool RendererSystem::startup() {
   }
   m_motionVectorProgram = Program::createFromFile("MotionVectors");
   m_sortPrimitiveProgram = Program::createFromFile("compute/SortPrimitive.csh");
-
   m_sortPrimitiveProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
+  m_mergePrimitiveProgram = Program::createFromFile("compute/MergePrimitive.csh");
+  m_mergePrimitiveProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
 
   m_raycastComputeProgram->setShaderStorageBuffer("PrimitiveBuffer", m_primitiveBuffer);
   m_raycastComputeProgram->setShaderStorageBuffer("CameraBuffer", m_camDataBuffer);
@@ -228,6 +230,18 @@ void RendererSystem::showTextureChooser(glow::SharedTexture2D& tex, std::string 
 
 }
 
+static unsigned int log2i(unsigned int val) {
+    if (val == 0) return UINT_MAX;
+    if (val == 1) return 0;
+    unsigned int ret = 0;
+    while (val > 1) {
+        val >>= 1;
+        ret++;
+    }
+    return ret;
+}
+
+
 
 void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   auto camEntity = pass.camera;
@@ -287,6 +301,35 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   {
       auto camDataBinding = m_camDataBuffer->bind();
       camDataBinding.setData(camData, GL_DYNAMIC_DRAW);
+  }
+
+  // Render motion vectors
+  {
+      // Set up gbuffer
+      auto gBufferBind = m_gBufferObject->bind();
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+      glDisable(GL_CULL_FACE);
+      glEnable(GL_DEPTH_TEST);
+      glDepthMask(GL_TRUE);
+      glDisable(GL_BLEND);
+      glViewport(0, 0, gBufferRes.x, gBufferRes.y);
+      glEnable(GL_CULL_FACE);
+
+      auto boundProgram = m_motionVectorProgram->use();
+
+      for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
+          auto drawCall = pass.submittedDrawCallsOpaque[i];
+
+          boundProgram.setUniform("uFar", cam->far);
+          boundProgram.setUniform("uTime", (float)totalTime);
+          boundProgram.setUniform("uModelMatrix", drawCall.thisRenderTransform);
+          boundProgram.setUniform("uInverseModelMatrix", glm::inverse(drawCall.thisRenderTransform));
+          boundProgram.setUniform("uViewProjectionMatrix", viewProjectionMatrix);
+          boundProgram.setUniform("uPrevModelMatrix", drawCall.lastRenderTransform);
+          boundProgram.setUniform("uPrevViewProjectionMatrix", prevViewProjectionMatrix);
+          drawCall.geometry.vao->bind().draw();
+      }
   }
 
   size_t totalPrimitiveCount = 0;
@@ -361,8 +404,8 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
               glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, idxBuffer->getObjectName());
               glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_primitiveBuffer->getObjectName());
 
-              boundCopyProgram.setUniform("sceneMin", glm::vec3(-1000.0));
-              boundCopyProgram.setUniform("sceneMax", glm::vec3( 1000.0));
+              boundCopyProgram.setUniform("sceneMin", glm::vec3(-100.0));
+              boundCopyProgram.setUniform("sceneMax", glm::vec3( 100.0));
 
               boundCopyProgram.setUniform("hasNormals", hasNormals);
               boundCopyProgram.setUniform("hasUvs", hasUvs);
@@ -379,11 +422,27 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
       }
   }
 
-  {
-      auto boundSortProgram = m_sortPrimitiveProgram->use();
-      boundSortProgram.setUniform("primitiveCount", (int)totalPrimitiveCount);
-      boundSortProgram.compute(totalPrimitiveCount / 8 + 1);
-  }
+ /* {
+      int groupCount = 2;
+      int blockCount = groupCount * 8;
+      {
+          auto boundSortProgram = m_sortPrimitiveProgram->use();
+          boundSortProgram.setUniform("primitiveCount", (int)totalPrimitiveCount);
+          boundSortProgram.setUniform("groupCount", groupCount);
+          boundSortProgram.compute(groupCount);
+      }
+
+      {
+          auto boundMergeProgram = m_mergePrimitiveProgram->use();
+          boundMergeProgram.setUniform("primitiveCount", (int)totalPrimitiveCount);
+          int mergeCount = log2i(blockCount);
+          for (int i = 0; i < mergeCount; i++) {
+              blockCount /= 2;
+              boundMergeProgram.setUniform("mergeLevel", i);
+              //boundMergeProgram.compute(blockCount);
+          }
+      }
+  }*/
 
   {
       auto boundBuffer = m_materialDataBuffer->bind();
@@ -430,35 +489,6 @@ void RendererSystem::render(RenderPass& pass, double interp, double totalTime) {
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
   // TXAA
   
-  glGetError();
-  {
-      // Set up gbuffer
-      auto gBufferBind = m_gBufferObject->bind();
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-      glDisable(GL_CULL_FACE);
-      glEnable(GL_DEPTH_TEST);
-      glDepthMask(GL_TRUE);
-      glDisable(GL_BLEND);
-      glViewport(0, 0, gBufferRes.x, gBufferRes.y);
-      glEnable(GL_CULL_FACE);
-
-      auto boundProgram = m_motionVectorProgram->use();
-
-      for (size_t i = 0; i < pass.submittedDrawCallsOpaque.size(); i++) {
-          auto drawCall = pass.submittedDrawCallsOpaque[i];
-
-          boundProgram.setUniform("uFar", cam->far);
-          boundProgram.setUniform("uTime", (float)totalTime);
-          boundProgram.setUniform("uModelMatrix", drawCall.thisRenderTransform);
-          boundProgram.setUniform("uInverseModelMatrix", glm::inverse(drawCall.thisRenderTransform));
-          boundProgram.setUniform("uViewProjectionMatrix", viewProjectionMatrix);
-          boundProgram.setUniform("uPrevModelMatrix", drawCall.lastRenderTransform);
-          boundProgram.setUniform("uPrevViewProjectionMatrix", prevViewProjectionMatrix);
-          drawCall.geometry.vao->bind().draw();
-      }
-  }
-
   glDisable(GL_BLEND);
 
   // attribute-less rendering:

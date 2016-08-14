@@ -113,6 +113,12 @@ bool WindowSystem::createWindow() {
     printf("Warning: Unable to set VSync! SDL Error: %s\n", SDL_GetError());
   }
 
+  cout << "OpenGL context version: " << glGetString(GL_VERSION) << endl;
+  cout << "OpenGL vendor:          " << glGetString(GL_VENDOR) << endl;
+  cout << "OpenGL renderer:        " << glGetString(GL_RENDERER) << endl;
+  cout << "GLSL version:           " << glGetString(GL_SHADING_LANGUAGE_VERSION)
+      << endl;
+
   return true;
 }
 

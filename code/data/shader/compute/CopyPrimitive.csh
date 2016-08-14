@@ -50,8 +50,9 @@ uint EncodeMorton3(uvec3 coords) {
 }
 
 uvec3 getIntCoords(vec3 pos) {
+  pos = clamp(pos, sceneMin, sceneMax);
   vec3 scaled = (pos - sceneMin)/(sceneMax - sceneMin);
-  return uvec3(scaled * vec3(intBitsToFloat(0x7f7fffff)));
+  return uvec3(scaled * vec3(2^32));
 }
 
 

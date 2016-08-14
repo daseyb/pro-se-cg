@@ -142,7 +142,7 @@ void AudioSystem::setListenerProperties() {
       FMOD_VECTOR fmodVel = { 0, 0, 0 };
 
       auto up = rot * glm::vec4(0, 1, 0, 0);
-      auto forward = rot * glm::vec4(0, 0, -1, 0);
+      auto forward = rot * glm::vec4(0, 0, 1, 0);
 
       FMOD_VECTOR fmodUp = { up.x, up.y, up.z };
       FMOD_VECTOR fmodForward = { forward.x, forward.y, forward.z };
