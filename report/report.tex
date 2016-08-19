@@ -100,7 +100,7 @@ Path tracing is an algorithm which solves the integral in Eq. \eqref{eq:renderin
 The mathematical basis for Monte Carlo integration is illustrated in Equation \eqref{eq:monte-carlo}. We know from basic statistics that the expected value of a function $f$ is the integral of that function times the probability distribution $p$ from which the random samples are drawn.
 
 \begin{equation}\label{eq:monte-carlo}
-E_N[f(x)] = \int{f(x)p(x)dx} \approx \frac{1}{N} \sum_{i=1}^{N}{ f(X_i) }   , X_i \sim p 
+E[f(x)] = \int{f(x)p(x)dx} \approx \frac{1}{N} \sum_{i=1}^{N}{ f(X_i) }   , X_i \sim p 
 \end{equation}
 
 Since we want to compute an approximate value for $\int{f(x)dx}$ we are actually looking for the expected value of $\frac{f(x)}{p(x)}$ as shown in Equation \eqref{eq:monte-carlo-prob}.
